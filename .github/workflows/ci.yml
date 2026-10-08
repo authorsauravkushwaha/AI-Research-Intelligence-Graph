@@ -161,7 +161,7 @@ jobs:
   polyglot:
     name: polyglot sidecars · kotlin · go · dotnet · ruby
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -172,21 +172,30 @@ jobs:
         run: pip install -r backend/requirements.txt
 
       - uses: actions/setup-go@v5
+        id: setup_go
         with:
           go-version: "1.22"
           cache: false
 
+      # Each sidecar runs with `continue-on-error`: one broken toolchain must not hide the
+      # state of the other four. The verdict step at the bottom fails the job if any of them
+      # did, and every failure is echoed as an ::error:: annotation so the reason is readable
+      # from the API/UI without downloading the raw log.
       - name: Go — vet, build, self-test
+        id: go
+        continue-on-error: true
         run: |
           go version
           cd polyglot/go
           go vet ./...
-          go build -o /tmp/nexus-ingest .
-          /tmp/nexus-ingest test
+          go build -o "$RUNNER_TEMP/nexus-ingest" .
+          "$RUNNER_TEMP/nexus-ingest" test
 
       - name: Go — extract the demo corpus (JSON contract + coverage)
+        id: go_extract
+        continue-on-error: true
         run: |
-          /tmp/nexus-ingest extract -corpus data/demo/corpus.json -out "$RUNNER_TEMP/extracted.json"
+          "$RUNNER_TEMP/nexus-ingest" extract -corpus data/demo/corpus.json -out "$RUNNER_TEMP/extracted.json"
           python - <<'PY'
           import json
           import os
@@ -201,32 +210,45 @@ jobs:
           empty = [e["paper_id"] for e in extractions if not e["topics"]]
           assert not empty, f"{len(empty)} papers were left without a topic"
           records = sum(len(e["provenance"]) for e in extractions)
-          print(f"  · {{len(extractions)}} extractions · {{records}} provenance records · 0 papers without a topic")
+          print(f"  · {len(extractions)} extractions · {records} provenance records · 0 papers without a topic")
           PY
 
       - name: .NET — build and self-test the export sidecar
+        id: dotnet
+        continue-on-error: true
         run: |
+          dotnet --info | head -5
           cd polyglot/dotnet
-          dotnet build -c Release NexusExport.csproj
-          dotnet run -c Release --project NexusExport.csproj -- test
+          if ! dotnet build -c Release NexusExport.csproj > "$RUNNER_TEMP/dotnet.log" 2>&1; then
+            echo "::error title=dotnet build failed::$(grep -E 'error|Error' "$RUNNER_TEMP/dotnet.log" | head -8 | tr '\n' '|')"
+            tail -40 "$RUNNER_TEMP/dotnet.log"
+            exit 1
+          fi
+          dotnet run -c Release --project NexusExport.csproj --no-build -- test
 
       - name: Kotlin — kotlinc from npm (the same recipe the README documents), self-test
+        id: kotlin_build
+        continue-on-error: true
         run: |
           npm pack kotlin-compiler
           tar xzf kotlin-compiler-*.tgz
-          package/bin/kotlinc polyglot/kotlin/src/main/kotlin/NexusPlanner.kt -include-runtime -d /tmp/planner.jar
-          java -jar /tmp/planner.jar --test
-          java -jar /tmp/planner.jar --plan 'topic:"AI Agents" type in (Paper, Method) limit 40'
+          package/bin/kotlinc polyglot/kotlin/src/main/kotlin/NexusPlanner.kt -include-runtime -d "$RUNNER_TEMP/planner.jar"
+          java -jar "$RUNNER_TEMP/planner.jar" --test
+          java -jar "$RUNNER_TEMP/planner.jar" --plan 'topic:"AI Agents" type in (Paper, Method) limit 40'
 
       - name: Kotlin planner — live sidecar, plan endpoint and Python parity
+        id: kotlin_live
+        continue-on-error: true
         run: |
-          java -jar /tmp/planner.jar --serve 8092 &
+          java -jar "$RUNNER_TEMP/planner.jar" --serve 8092 &
           for _ in $(seq 1 30); do curl -sf localhost:8092/health >/dev/null && break; sleep 1; done
           curl -sf localhost:8092/health
           python scripts/compare_planners.py --url http://127.0.0.1:8092
-          python scripts/compare_planners.py --jar /tmp/planner.jar --quiet
+          python scripts/compare_planners.py --jar "$RUNNER_TEMP/planner.jar" --quiet
 
       - name: Ruby — self-test, HTTP sidecar, and parity with the Python engine
+        id: ruby
+        continue-on-error: true
         run: |
           if ! command -v ruby >/dev/null 2>&1; then
             echo "::warning::no system ruby on this runner; the resolver logic was verified on CRuby 3.2 (ruby.wasm) — see polyglot/README.md"
@@ -254,6 +276,24 @@ jobs:
           curl -sf -X POST localhost:8093/resolve -H 'content-type: application/json' \
             --data @/tmp/claims.json > /tmp/ruby_http.json
           python scripts/compare_claim_engines.py /tmp/ruby_http.json
+
+      - name: Sidecar verdict (fails the job if any sidecar above failed)
+        if: always()
+        run: |
+          failed=0
+          for entry in "go=${{ steps.go.outcome }}" "go_extract=${{ steps.go_extract.outcome }}" \
+                       "dotnet=${{ steps.dotnet.outcome }}" "kotlin_build=${{ steps.kotlin_build.outcome }}" \
+                       "kotlin_live=${{ steps.kotlin_live.outcome }}" "ruby=${{ steps.ruby.outcome }}"; do
+            name="${entry%%=*}"; outcome="${entry#*=}"
+            if [ "$outcome" = "success" ] || [ "$outcome" = "skipped" ]; then
+              echo "ok   $name ($outcome)"
+            else
+              echo "::error title=sidecar $name failed::outcome=$outcome (see the step output above)"
+              failed=$((failed + 1))
+            fi
+          done
+          echo "sidecar failures: $failed"
+          [ "$failed" -eq 0 ]
 
   # ------------------------------------------------------------------ container
   container:
