@@ -126,6 +126,26 @@ Optionally show `docker compose up -d`, then `/api/health` reporting
 | "Could it be gamed?" | The corpus-bounded language, the excluded-pairs list and the per-record provenance are all designed so a wrong claim is visible, not persuasive. |
 | "What breaks at scale?" | The store interface and schema don't change; Neo4j + GDS replaces the embedded engine, and the kernel already handles 20k nodes at ~100 ms PageRank. |
 
+## If you are demoing the published site
+
+The same demo runs at <https://authorsauravkushwaha.github.io/AI-Research-Intelligence-Graph/>
+with no server at all, including on a phone (the install button in the header adds it to the
+home screen). Two adjustments in the narration:
+
+* say what it is before someone asks: *"this is the whole prototype built ahead of time — the
+  graph, the gap scores and the agent answers come from the identical engines, run at build
+  time; everything you click in the graph, search, listings and timelines is computed in your
+  browser right now"*;
+* the eight precomputed gap scopes are *AI Agents, Agent Memory, Tool Use, Reasoning,
+  Multi-Agent Systems, RAG, Evaluation, Benchmarking, AI Safety, Human-AI Interaction* (plus
+  the whole corpus). Typing a different topic returns the documented empty state — that is a
+  feature (the site refuses to invent a score), and the reason it prints includes the command
+  to run NEXUS locally for a live answer;
+* everything else in this script — the graph rotation, the ReAct evidence path, the
+  explainability panel, the conflict list, the report — is unchanged.
+
+---
+
 ## Pre-flight checklist
 
 ```bash

@@ -95,6 +95,30 @@ provenance block, so a shared report cannot be read out of context.
 
 ---
 
+## The published snapshot of these views
+
+The same seven views are published at
+<https://authorsauravkushwaha.github.io/AI-Research-Intelligence-Graph/> and install as an app
+(`manifest.webmanifest` + service worker, so it opens offline). Nothing in the layout changes —
+only where the numbers come from:
+
+* **computed in the browser** on every interaction: the graph subgraph, expand-on-demand,
+  neighbours, shortest paths, paper and node detail, search, the paper list, the timeline and
+  the explorer. `frontend/assets/site.js` implements those endpoints over `data/graph.json`,
+  and `scripts/compare_site_data.py` proves they return what the live API returns (38/38);
+* **replayed from build-time engine output**: gap scopes and scores, opportunity reports and
+  agent answers. Their panels show a `static snapshot` chip, and the payload carries
+  `static_snapshot.mode: "recorded"` plus the note that the numbers were computed at build
+  time by the same engines;
+* **an honest empty state**: a topic that was not precomputed (type any topic in the Gap
+  Finder) returns the reason, the list of precomputed scopes, and the command to run the app
+  locally — never an invented score.
+
+The 3D graph, the evidence highlight, the planner card and all safety language are identical
+to the local experience.
+
+---
+
 ## Accessibility and robustness
 
 * Keyboard-reachable controls, visible focus rings, ARIA labels on the 3D canvas and the

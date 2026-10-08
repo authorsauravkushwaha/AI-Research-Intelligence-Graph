@@ -14,6 +14,7 @@ not a chat box — to find **research gaps**, explain **contradictions**, predic
   <img alt="llm" src="https://img.shields.io/badge/LLM-optional%20(offline%20fallback)-green">
   <img alt="frontend" src="https://img.shields.io/badge/3D-three.js%20r160%20(vendored)-000000">
   <img alt="tests" src="https://img.shields.io/badge/tests-75%20passing-brightgreen">
+  <img alt="website" src="https://img.shields.io/badge/site-live%20on%20GitHub%20Pages-2ea44f">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
@@ -23,6 +24,7 @@ not a chat box — to find **research gaps**, explain **contradictions**, predic
 
 - [What it does](#what-it-does)
 - [Quickstart](#quickstart)
+- [Website & app (published)](#website--app-published)
 - [The seven views](#the-seven-views)
 - [Killer feature — FIND RESEARCH GAPS](#killer-feature--find-research-gaps)
 - [Architecture](#architecture)
@@ -97,6 +99,76 @@ docker compose up                # Neo4j 5 + GDS + APOC + the API container
 ```
 
 ---
+
+## Website & app (published)
+
+**Live site: <https://authorsauravkushwaha.github.io/AI-Research-Intelligence-Graph/>** —
+the same seven views, no backend, installable on a phone or a desktop.
+
+GitHub Pages cannot run FastAPI, so the website is not a mock-up of NEXUS: it is NEXUS,
+computed ahead of time. `scripts/build_site.py` drives the **real** application in-process —
+the same store, analytics, gap engine, GraphRAG pipeline, planner and agent the API serves —
+and records their answers as JSON next to a snapshot of the graph:
+
+```
+scripts/build_site.py ──► TestClient(create_app()) ──► data/graph.json (713 nodes / 2,963 edges)
+                                                     data/index.json (counts, references, questions)
+                                                     data/scope--*.json   (gap-engine resolutions)
+                                                     data/gaps--*.json    (scored opportunities)
+                                                     data/report--*.json  (+ .md report exports)
+                                                     data/agent--*.json   (+ SSE stage traces)
+```
+
+In the browser, [frontend/assets/site.js](frontend/assets/site.js) re-implements the read-only
+endpoints over that snapshot — subgraph selection, BFS paths, search, listings, the timeline and
+the explorer are **computed live** on every click, not replayed from a screenshot. The gap
+scopes, agent answers and reports are build-time engine output, and the site says so:
+
+| what a visitor gets | how it is produced | how it is labelled |
+| --- | --- | --- |
+| knowledge graph, expand, neighbours, shortest paths | browser-side BFS over `graph.json` | `static_snapshot.backend: "static-snapshot"` |
+| paper/node detail, search, listings, timeline, explorer | browser-side engine mirror | same numbers as the API (verified below) |
+| FIND RESEARCH GAPS, opportunity report, agent answers | the real engines at build time | `static_snapshot.mode: "recorded"` |
+| any scope that was not precomputed | documented empty state + reason + local command | never a fabricated score |
+
+It is a real app, not a page: `manifest.webmanifest` plus a service worker precise the shell and
+the demo scopes, so it **installs** (`Add to Home Screen` / the install button in the header) and
+**opens offline**. The build also ships the exported Cypher for the graph it describes
+(`data/export-cypher.txt`), so the snapshot can be replayed into Neo4j.
+
+```bash
+pip install -r backend/requirements.txt -r scripts/requirements-site.txt
+python scripts/build_site.py --out site            # ~2 min, writes ./site (6.7 MB, 149 files)
+python -m http.server 8080 --directory site        # http://localhost:8080
+```
+
+### The published build is verified, not trusted
+
+Two scripts stand between the build and the URL, and `.github/workflows/pages.yml` runs both —
+a failed check fails the deploy:
+
+```bash
+node scripts/check_site_data.mjs --out /tmp/js.json   # every route the UI calls, planner parity, recordings
+python scripts/compare_site_data.py /tmp/js.json      # the same questions asked of the live API
+```
+
+```text
+static layer verified: planner parity, 15 routes, recorded data and computed payloads
+38/38 comparisons agree with the live engine
+the published site computes the same answers as the live engine
+```
+
+The Node checker replays all 15 `/api/*` routes the UI uses against the snapshot, requires the
+JavaScript planner to reproduce the Kotlin reference plans in `tests/data/planner_parity.json`
+character for character, and checks that recorded payloads are served unchanged. The Python
+comparator then asks the **live** app for the same graph subgraphs, paths, paper and node
+details, listings, searches, timelines and explorer overviews, and diffs them field by field
+(38 comparisons). Shortest paths are compared by endpoints, length and edge validity rather
+than by a particular tie-break, because more than one shortest chain usually exists.
+
+`site/` is generated and not committed; the workflow rebuilds it on every push to `main`.
+The static layer is a snapshot of the curated demo corpus — it answers questions about those
+204 papers, and it says so instead of guessing.
 
 ## The seven views
 
@@ -480,6 +552,17 @@ make -C native test          # native kernel self-tests
 CI runs all of the above plus a `docker build` and a vendored-frontend/no-CDN audit on
 every push — see [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
+The published website and app are tested the same way (and the deploy is gated on it):
+
+```bash
+python scripts/build_site.py --quiet                  # build the snapshot from the live engines
+node scripts/check_site_data.mjs --out /tmp/js.json    # routes, planner parity, recordings, shapes
+python scripts/compare_site_data.py /tmp/js.json       # 38 field-by-field diffs against the live API
+```
+
+See [Website & app (published)](#website--app-published) — `site/` is generated, so a fresh
+clone builds it rather than carrying it.
+
 ---
 
 ## Demo script (3–5 minutes)
@@ -524,7 +607,8 @@ AI-Research-Intelligence-Graph/
 ├── mcp/                stdio MCP server exposing the same 13 tools
 ├── native/             C++17 graph kernel (PageRank, Louvain, betweenness, link prediction)
 ├── polyglot/           Kotlin planner · Ruby claim resolver · Go ingest · C# export · Java service
-├── scripts/            corpus builder/validator, live smoke sweep
+├── scripts/            corpus builder/validator, live smoke sweep, static-site builder
+├── site/               generated website + PWA (gitignored; built by scripts/build_site.py)
 ├── tests/              pytest suite (75 tests)
 ├── docker-compose.yml  Neo4j 5.26 + GDS + APOC + API
 └── run.py              launcher with preflight checks
@@ -564,8 +648,9 @@ Honest list, because a research prototype that hides its limits is not a researc
 | [docs/GRAPHRAG.md](docs/GRAPHRAG.md) | The three-channel retrieval pipeline, synthesis paths, explainability contract, MCP |
 | [docs/API.md](docs/API.md) | Every endpoint with request/response shapes and error behaviour |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Node labels, the 14 relationship types, wire format, corpus record format |
-| [docs/UI.md](docs/UI.md) | The seven views, graph controls, accessibility and degradation behaviour |
+| [docs/UI.md](docs/UI.md) | The seven views, graph controls, the published snapshot, accessibility and degradation behaviour |
 | [docs/SAFETY.md](docs/SAFETY.md) | The honesty rules and where each one is enforced in code |
+| [scripts/build_site.py](scripts/build_site.py) | The static-site builder: what it records, how the snapshot is laid out, the PWA shell |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | The 3–5 minute live walkthrough, with answers to hard questions |
 | [data/demo/PROVENANCE.md](data/demo/PROVENANCE.md) | Per-field audit of what is real and what is editorial |
 | [mcp/README.md](mcp/README.md) | Using NEXUS as an MCP research-tool server |

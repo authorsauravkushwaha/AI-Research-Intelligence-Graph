@@ -18,6 +18,9 @@ dist/
 # native build output (rebuilt with `make`)
 native/build/
 
+# generated static site (scripts/build_site.py — rebuilt by the pages workflow)
+site/
+
 # node (only used to vendor front-end libraries)
 node_modules/
 package-lock.json

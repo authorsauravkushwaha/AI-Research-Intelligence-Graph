@@ -275,6 +275,8 @@ def papers(
     if q:
         hits = {hit["id"] for hit in _store.search(q, labels=["Paper"], limit=500)}
         page["items"] = [item for item in page["items"] if item["id"] in hits]
+        page["filtered_by_query"] = q
+        page["total"] = len(page["items"])   # `total` describes the rows the caller gets
     page["sort"] = sort
     return page
 

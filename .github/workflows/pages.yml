@@ -1,0 +1,98 @@
+name: pages
+
+# Publishes the backend-free snapshot of NEXUS as a website + installable app.
+#
+# The job is the same thing a developer runs locally:
+#   1. build the static site with the real engines (scripts/build_site.py drives the
+#      FastAPI app in-process, so graph.json, the gap scores, the agent answers and the
+#      reports are produced by the same code the API serves);
+#   2. verify it — the Node checker replays every route the UI calls and diffs the
+#      Kotlin planner, then the Python comparator asks the live app the same questions
+#      and requires the same answers;
+#   3. upload the verified folder as the Pages artefact.
+# A failing verification fails the deploy: the published site is never an unverified one.
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  NEXUS_DEMO_MODE: "true"
+
+jobs:
+  build:
+    name: build · verify · upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            scripts/requirements-site.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt -r scripts/requirements-site.txt
+
+      - name: Build the static site (same engines as the API)
+        run: python scripts/build_site.py --out site
+
+      - name: Verify the static layer in Node (routes, planner parity, recordings)
+        run: node scripts/check_site_data.mjs --out "$RUNNER_TEMP/js.json"
+
+      - name: Verify the static layer against the live engines
+        run: python scripts/compare_site_data.py "$RUNNER_TEMP/js.json"
+
+      - name: Summarise the artefact
+        run: |
+          {
+            echo "### NEXUS static build"
+            echo
+            echo "- size: $(du -sh site | cut -f1)"
+            echo "- files: $(find site -type f | wc -l)"
+            echo "- recorded API payloads: $(ls site/data | wc -l)"
+            echo "- graph: $(python - <<'PY'
+import json
+g = json.load(open("site/data/graph.json"))
+print(f"{g['counts']['nodes']} nodes / {g['counts']['edges']} edges")
+PY
+)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
