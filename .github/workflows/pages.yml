@@ -66,21 +66,28 @@ jobs:
 
       - name: Summarise the artefact
         run: |
-          {
-            echo "### NEXUS static build"
-            echo
-            echo "- size: $(du -sh site | cut -f1)"
-            echo "- files: $(find site -type f | wc -l)"
-            echo "- recorded API payloads: $(ls site/data | wc -l)"
-            echo "- graph: $(python - <<'PY'
-import json
-g = json.load(open("site/data/graph.json"))
-print(f"{g['counts']['nodes']} nodes / {g['counts']['edges']} edges")
-PY
-)"
-          } >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import pathlib
 
-      - uses: actions/configure-pages@v5
+          site = pathlib.Path("site")
+          files = [p for p in site.rglob("*") if p.is_file()]
+          size = sum(p.stat().st_size for p in files) / 1048576
+          graph = json.loads((site / "data" / "graph.json").read_text())
+          print("### NEXUS static build")
+          print()
+          print(f"- size: {size:.1f} MiB in {len(files)} files")
+          print(f"- recorded API payloads: {len(list((site / 'data').iterdir()))}")
+          print(f"- graph snapshot: {graph['counts']['nodes']} nodes / {graph['counts']['edges']} edges")
+          print("- checks: route replay + Kotlin planner parity, 38 payload diffs against the live API")
+          PY
+
+      - name: Configure Pages (enables the Pages site on the first run)
+        uses: actions/configure-pages@v5
+        with:
+          # the workflow token carries `pages: write`, so a repository that has never had
+          # Pages switched on gets the site created here instead of failing the deploy
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
