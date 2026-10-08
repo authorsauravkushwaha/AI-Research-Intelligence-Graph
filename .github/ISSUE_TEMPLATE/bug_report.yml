@@ -1,0 +1,38 @@
+name: Bug report
+description: Something in NEXUS is broken, wrong or misleading
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please run `python run.py --check` first — it reports missing dependencies, a missing
+        corpus and whether the native kernel built. `curl -s localhost:8000/api/health` tells
+        you which store and engines answered, which usually explains the symptom.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include the view or endpoint, the exact request body, and the response.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: health
+    attributes:
+      label: Output of `curl -s localhost:8000/api/health`
+      render: json
+    validations:
+      required: false
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "OS, python version, Neo4j / LLM key configured?, did the native kernel build?"
+    validations:
+      required: true

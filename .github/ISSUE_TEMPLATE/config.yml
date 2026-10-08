@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read the methodology first
+    url: https://github.com/authorsauravkushwaha/AI-Research-Intelligence-Graph/blob/main/docs/METHODOLOGY.md
+    about: How the scores are computed, and what they must not be used for.
+  - name: Safety and honesty policy
+    url: https://github.com/authorsauravkushwaha/AI-Research-Intelligence-Graph/blob/main/docs/SAFETY.md
+    about: The rules every generated claim in this project follows.

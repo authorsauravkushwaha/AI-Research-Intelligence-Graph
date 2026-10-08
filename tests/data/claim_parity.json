@@ -1,0 +1,118 @@
+{
+ "description": "Claim-conflict parity fixture: the Ruby sidecar (polyglot/ruby/claim_resolver.rb), executed on CRuby 3.2 (ruby+stdlib.wasm via npm @ruby/3.2-wasm-wasi 2.10.1), and the Python engine (backend/ingestion/claims.py) produce exactly this set of candidates, scores and kinds from data/demo/corpus.json. Both engines were verified identical on 51 curated claims.",
+ "claims": 51,
+ "engines_verified": [
+  "nexus-claim-resolver-python (CPython 3.11)",
+  "nexus-claim-resolver-ruby (CRuby 3.2 wasm-wasi)"
+ ],
+ "conflicts": [
+  {
+   "claim_a": "2502.12110:1",
+   "claim_b": "2505.16067:1",
+   "score": 0.875,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2508.19828:1",
+   "claim_b": "2505.16067:2",
+   "score": 0.855,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2505.16067:2",
+   "claim_b": "2303.11366:1",
+   "score": 0.845,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2402.05120:1",
+   "claim_b": "2505.16067:1",
+   "score": 0.83,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2402.05120:1",
+   "claim_b": "2503.13657:1",
+   "score": 0.518,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2302.04761:1",
+   "claim_b": "2408.01875:1",
+   "score": 0.514,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2502.13172:1",
+   "claim_b": "2402.01586:1",
+   "score": 0.505,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2402.08567:1",
+   "claim_b": "2502.11127:1",
+   "score": 0.5,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2210.03629:1",
+   "claim_b": "2308.03688:1",
+   "score": 0.491,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2308.03688:1",
+   "claim_b": "2510.04851:1",
+   "score": 0.491,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2309.02427:1",
+   "claim_b": "2401.10019:1",
+   "score": 0.491,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2302.04761:1",
+   "claim_b": "2503.24047:1",
+   "score": 0.483,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2503.13657:1",
+   "claim_b": "2503.01935:1",
+   "score": 0.48,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2408.01875:1",
+   "claim_b": "2306.05685:1",
+   "score": 0.48,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2502.13172:1",
+   "claim_b": "2303.11366:1",
+   "score": 0.48,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2502.13172:1",
+   "claim_b": "2304.03442:1",
+   "score": 0.48,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2402.01030:1",
+   "claim_b": "2401.10019:1",
+   "score": 0.48,
+   "kind": "polarity"
+  },
+  {
+   "claim_a": "2401.10019:1",
+   "claim_b": "2504.16736:1",
+   "score": 0.48,
+   "kind": "polarity"
+  }
+ ]
+}

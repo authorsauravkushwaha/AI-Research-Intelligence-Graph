@@ -1,0 +1,4 @@
+# Dependencies of the static-site builder (scripts/build_site.py) and of the
+# verification scripts that run against it. The backend server does **not** need
+# these — `backend/requirements.txt` is the runtime set.
+pillow>=10.0            # deterministic PWA icons (scripts/build_site.py:build_icons)

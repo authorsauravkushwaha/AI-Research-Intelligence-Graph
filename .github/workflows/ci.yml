@@ -1,0 +1,343 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  NEXUS_DEMO_MODE: "true"
+
+jobs:
+  # ---------------------------------------------------------------- python + kernel
+  test:
+    name: tests · python · native kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest
+
+      - name: Build the native graph kernel (C++)
+        run: |
+          make -C native -j4
+          make -C native test
+
+      - name: Validate and rebuild the demo corpus
+        run: |
+          python scripts/build_corpus.py --check
+          python scripts/build_corpus.py
+
+      - name: Preflight
+        run: python run.py --check
+
+      - name: Run the test suite
+        run: python -m pytest -q
+
+      - name: Start the server, then run the end-to-end smoke sweep
+        run: |
+          python run.py --host 127.0.0.1 --port 8000 > server.log 2>&1 &
+          server_pid=$!
+          for i in $(seq 1 90); do
+            curl -sf http://127.0.0.1:8000/api/ping >/dev/null && break
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "::error title=server exited during start-up::$(tail -15 server.log | tr '\n' '|')"
+              break
+            fi
+            sleep 1
+          done
+          if ! curl -sf http://127.0.0.1:8000/api/ping >/dev/null; then
+            echo "::error title=/api/ping never answered 200::$(tail -15 server.log | tr '\n' '|')"
+            tail -40 server.log
+            exit 1
+          fi
+          ./scripts/smoke.sh
+
+      - name: Upload the server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-server-log
+          path: |
+            server.log
+            *.log
+          if-no-files-found: ignore
+
+  # ------------------------------------------------------------------- front end
+  frontend:
+    name: frontend · no CDN · syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Vendored three.js must be present
+        run: |
+          test -s frontend/vendor/three.module.js
+          test -s frontend/vendor/OrbitControls.js
+
+      - name: No external CDN may be referenced
+        run: |
+          if grep -Ei 'https?://(cdn|unpkg|jsdelivr|esm\.sh)' -r frontend/index.html frontend/assets; then
+            echo "::error::frontend references an external CDN — the demo must run offline"
+            exit 1
+          fi
+
+      - name: ES module syntax check
+        run: |
+          for f in frontend/assets/*.js; do
+            cp "$f" "/tmp/$(basename "$f" .js).mjs"
+            node --check "/tmp/$(basename "$f" .js).mjs"
+          done
+
+  # ------------------------------------------------- published website + app
+  site:
+    name: site · static build · snapshot verified
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            scripts/requirements-site.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt -r scripts/requirements-site.txt
+
+      - name: Build the static site (the engines run in-process)
+        run: python scripts/build_site.py --out site
+
+      - name: Verify the snapshot (every recorded engine answer, replayed through the shipped site.js)
+        run: node scripts/check_site_data.mjs --site site --json "$RUNNER_TEMP/site-checks.json"
+
+      - name: Publish the verification summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os, pathlib
+          report = pathlib.Path(os.environ["RUNNER_TEMP"]) / "site-checks.json"
+          if not report.exists():
+              print("### static snapshot verification\n")
+              print("no report produced — the checker did not run")
+              raise SystemExit(0)
+          data = json.loads(report.read_text())
+          summary = data["summary"]
+          print("### static snapshot verification\n")
+          print(f"- checks: **{summary['total'] - summary['failed']}/{summary['total']} passed**")
+          print(f"- values compared against the engine's recorded answers: {summary['compared']}")
+          print(f"- build version: {data['version']}")
+          for note in data.get("notes", [])[:4]:
+              print(f"- {note}")
+          for check in data["checks"]:
+              if not check["ok"]:
+                  print(f"- FAILED: {check['name']}")
+          PY
+
+      - name: Every asset the app shell needs must exist
+        run: |
+          # .nojekyll is empty by design (that is how it disables Jekyll), so it is only
+          # required to exist; everything else must have content.
+          test -f site/.nojekyll || { echo "::error::site/.nojekyll is missing"; exit 1; }
+          for f in index.html manifest.webmanifest sw.js \
+                   data/graph.json data/index.json data/export-cypher.txt \
+                   icons/icon-192.png icons/icon-512.png icons/icon-maskable-512.png \
+                   vendor/three.module.js vendor/OrbitControls.js assets/site.js; do
+            test -s "site/$f" || { echo "::error::site/$f is missing or empty"; exit 1; }
+          done
+          echo "site: $(du -sh site | cut -f1) · $(find site -type f | wc -l) files · $(ls site/data | wc -l) recorded payloads"
+
+  # ---------------------------------------------------------------- polyglot
+  polyglot:
+    name: polyglot sidecars · kotlin · go · dotnet · ruby
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python deps for the parity scripts
+        run: pip install -r backend/requirements.txt
+
+      - uses: actions/setup-go@v5
+        id: setup_go
+        with:
+          go-version: "1.22"
+          cache: false
+
+      # Each sidecar runs with `continue-on-error`: one broken toolchain must not hide the
+      # state of the other four. The verdict step at the bottom fails the job if any of them
+      # did, and every failure is echoed as an ::error:: annotation so the reason is readable
+      # from the API/UI without downloading the raw log.
+      - name: Go — vet, build, self-test
+        id: go
+        continue-on-error: true
+        run: |
+          go version
+          cd polyglot/go
+          go vet ./...
+          go build -o "$RUNNER_TEMP/nexus-ingest" .
+          "$RUNNER_TEMP/nexus-ingest" test
+
+      - name: Go — extract the demo corpus (JSON contract + coverage)
+        id: go_extract
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/nexus-ingest" extract -corpus data/demo/corpus.json -out "$RUNNER_TEMP/extracted.json"
+          python - <<'PY'
+          import json
+          import os
+
+          payload = json.load(open(os.environ["RUNNER_TEMP"] + "/extracted.json"))
+          extractions = payload["extractions"]
+          assert extractions, "the sidecar extracted nothing"
+          nulls = [e["paper_id"] for e in extractions
+                   for key in ("topics", "methods", "datasets", "metrics", "claims", "provenance")
+                   if e[key] is None]
+          assert not nulls, f"null instead of [] in {sorted(set(nulls))[:3]}"
+          empty = [e["paper_id"] for e in extractions if not e["topics"]]
+          assert not empty, f"{len(empty)} papers were left without a topic"
+          records = sum(len(e["provenance"]) for e in extractions)
+          print(f"  · {len(extractions)} extractions · {records} provenance records · 0 papers without a topic")
+          PY
+
+      - name: .NET — build and self-test the export sidecar
+        id: dotnet
+        continue-on-error: true
+        run: |
+          dotnet --info | head -5
+          cd polyglot/dotnet
+          if ! dotnet build -c Release NexusExport.csproj > "$RUNNER_TEMP/dotnet.log" 2>&1; then
+            echo "::error title=dotnet build failed::$(grep -E 'error|Error' "$RUNNER_TEMP/dotnet.log" | head -8 | tr '\n' '|')"
+            tail -40 "$RUNNER_TEMP/dotnet.log"
+            exit 1
+          fi
+          if ! dotnet run -c Release --project NexusExport.csproj --no-build -- test > "$RUNNER_TEMP/dotnet-test.log" 2>&1; then
+            echo "::error title=dotnet self-test failed::$(grep -i 'FAIL' "$RUNNER_TEMP/dotnet-test.log" | head -6 | tr '\n' '|')"
+            cat "$RUNNER_TEMP/dotnet-test.log"
+            exit 1
+          fi
+
+      - name: Kotlin — kotlinc from npm (the same recipe the README documents), self-test
+        id: kotlin_build
+        continue-on-error: true
+        run: |
+          npm pack kotlin-compiler
+          tar xzf kotlin-compiler-*.tgz
+          package/bin/kotlinc polyglot/kotlin/src/main/kotlin/NexusPlanner.kt -include-runtime -d "$RUNNER_TEMP/planner.jar"
+          java -jar "$RUNNER_TEMP/planner.jar" --test
+          java -jar "$RUNNER_TEMP/planner.jar" --plan 'topic:"AI Agents" type in (Paper, Method) limit 40'
+
+      - name: Kotlin planner — live sidecar, plan endpoint and Python parity
+        id: kotlin_live
+        continue-on-error: true
+        run: |
+          java -jar "$RUNNER_TEMP/planner.jar" --serve 8092 &
+          for _ in $(seq 1 30); do curl -sf localhost:8092/health >/dev/null && break; sleep 1; done
+          curl -sf localhost:8092/health
+          python scripts/compare_planners.py --url http://127.0.0.1:8092
+          python scripts/compare_planners.py --jar "$RUNNER_TEMP/planner.jar" --quiet
+
+      - name: Ruby — self-test, HTTP sidecar, and parity with the Python engine
+        id: ruby
+        continue-on-error: true
+        run: |
+          if ! command -v ruby >/dev/null 2>&1; then
+            echo "::warning::no system ruby on this runner; the resolver logic was verified on CRuby 3.2 (ruby.wasm) — see polyglot/README.md"
+            exit 0
+          fi
+          ruby -v
+          ruby polyglot/ruby/claim_resolver.rb --test
+
+          python - <<'PY'
+          import json
+          corpus = json.load(open("data/demo/corpus.json"))
+          claims = [{"id": c["id"], "paper_id": c["paper"], "text": c["text"]} for c in corpus["claims"]]
+          json.dump({"claims": claims}, open("/tmp/claims.json", "w"))
+          print(f"{len(claims)} claims written to /tmp/claims.json")
+          PY
+
+          # CLI path
+          ruby polyglot/ruby/claim_resolver.rb /tmp/claims.json > /tmp/ruby_cli.json
+          python scripts/compare_claim_engines.py /tmp/ruby_cli.json
+
+          # HTTP path (the contract NEXUS_CLAIM_URL expects)
+          ruby polyglot/ruby/claim_resolver.rb --serve 8093 &
+          for _ in $(seq 1 30); do curl -sf localhost:8093/health >/dev/null && break; sleep 1; done
+          curl -sf localhost:8093/health
+          curl -sf -X POST localhost:8093/resolve -H 'content-type: application/json' \
+            --data @/tmp/claims.json > /tmp/ruby_http.json
+          python scripts/compare_claim_engines.py /tmp/ruby_http.json
+
+      - name: Sidecar verdict (fails the job if any sidecar above failed)
+        if: always()
+        run: |
+          failed=0
+          for entry in "go=${{ steps.go.outcome }}" "go_extract=${{ steps.go_extract.outcome }}" \
+                       "dotnet=${{ steps.dotnet.outcome }}" "kotlin_build=${{ steps.kotlin_build.outcome }}" \
+                       "kotlin_live=${{ steps.kotlin_live.outcome }}" "ruby=${{ steps.ruby.outcome }}"; do
+            name="${entry%%=*}"; outcome="${entry#*=}"
+            if [ "$outcome" = "success" ] || [ "$outcome" = "skipped" ]; then
+              echo "ok   $name ($outcome)"
+            else
+              echo "::error title=sidecar $name failed::outcome=$outcome (see the step output above)"
+              failed=$((failed + 1))
+            fi
+          done
+          echo "sidecar failures: $failed"
+          [ "$failed" -eq 0 ]
+
+  # ------------------------------------------------------------------ container
+  container:
+    name: docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image (no push)
+        run: docker build -t nexus:ci .
+      - name: Boot the container and probe the API
+        run: |
+          docker run -d --rm --name nexus-ci -p 8000:8000 nexus:ci
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8000/api/ping >/dev/null && break
+            sleep 1
+          done
+          curl -s http://127.0.0.1:8000/api/health | head -c 400
+          curl -sf http://127.0.0.1:8000/api/gaps -X POST \
+            -H 'content-type: application/json' \
+            -d '{"topic":"AI Agents","top_k":1}' >/dev/null
+          docker stop nexus-ci
