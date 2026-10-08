@@ -8,7 +8,7 @@ behind the same interface answers instead, and the response says which engine ra
 | --- | --- | --- | --- | --- |
 | **Ruby** | `ruby/claim_resolver.rb` | Claim parsing, negation/polarity, direction axes, conflict scoring | `NEXUS_CLAIM_URL` (HTTP, `--serve 8093`) | **Yes** — CRuby 3.2 (wasm) on the real corpus, self-test + parity, see below |
 | **Kotlin (JVM)** | `kotlin/src/main/kotlin/NexusPlanner.kt` | Query planner: NEXUS DSL → parameterised Cypher, plus a fallback traversal engine | `NEXUS_PLANNER_URL` (`/api/plan`) | **Yes** — kotlinc 2.4.21 + OpenJDK 25, self-test and `/api/services` live, see below |
-| **Go** | `go/main.go` | Corpus ingestion + embedding service (static binary, concurrency) | `NEXUS_INGEST_URL` | Not in the sandbox (no toolchain) — built and self-tested in CI |
+| **Go** | `go/main.go` | Corpus ingestion + embedding service (static binary, concurrency) | `NEXUS_INGEST_URL` | Yes — Go 1.27 (`go-bin` from PyPI): `--test` 12/12 and `extract` over the 204-paper corpus |
 | **C# / .NET** | `dotnet/Program.cs`, `dotnet/NexusExport.csproj` | GraphML/CSV/JSON/Cypher export service | `NEXUS_EXPORT_URL` | Not in the sandbox (no SDK) — built and self-tested in CI |
 | **C++17** | `../native/` | Graph kernel: PageRank, Louvain, betweenness, kNN, link prediction | in-process subprocess | **Yes** — built and benchmarked |
 | **JavaScript** | `../frontend/` | 3D graph UI (vendored three.js r160, no build step) | served by the API | **Yes** — syntax-checked, served over HTTP |
@@ -148,12 +148,20 @@ falls back to the Python implementation, and the response still says which engin
 | Kotlin planner | yes — kotlinc 2.4.21 (npm `kotlin-compiler`) | yes — OpenJDK 25 (`jdk4py`): `--test` exit 0, `--plan`, `--serve` + `GET /api/plan`, `/api/services` | compile + `--test` + `--plan` + `scripts/compare_planners.py` |
 | Ruby claim resolver | — (interpreted) | yes — CRuby 3.2 via `ruby.wasm`: `--test` exit 0, 51-claim parity run | `--test` + `--serve` + HTTP `/resolve` + `scripts/compare_claim_engines.py` |
 | C++ kernel | yes — g++ | yes — built under `pytest`, benchmarks in `native/README.md` | build + algorithm tests |
-| Go ingest | no toolchain here | **no** | `go vet`, `go build`, `nexus-ingest test` |
+| Go ingest | yes — Go 1.27.1 (`pip install go-bin`), the *only* route to a Go toolchain here | yes — `--test` 12/12 exit 0, `extract -corpus data/demo/corpus.json` → 204 extractions / 266 provenance records | `go vet`, `go build`, `nexus-ingest test`, corpus extraction contract |
 | C#/.NET export | no SDK here | **no** | `dotnet build`, `nexus-export test` |
 
-The Go and .NET sidecars are complete implementations that have never been run in this
-environment: no toolchain was available and GitHub release assets were unreachable
-(HTTP 000 / empty 302), so they could not be fetched. Treat them as reviewed-by-hand
-rather than proven — that is exactly what the table above is for. CI builds and
-self-tests them on every push, and reports anything a runner cannot provide as an
-explicit `::warning::` instead of a silent pass.
+The **Go** sidecar has now been run here: PyPI ships a `go-bin` wheel with the official
+Go toolchain, which is how it was compiled. Four real defects came out of that run — a RE2
+lookbehind pattern that panicked at start-up (`regexp.MustCompile(`(?<=[.!?])\s+`)`, so the
+self-test died before extracting anything), entity names that did not match the ones the
+graph already uses (`Multi-agent systems`, `Chain-of-thought`, `Gaia`), a corpus loader that
+only accepted a bare JSON array when `scripts/build_corpus.py` writes an object, and `null`
+instead of `[]` for empty slices in the JSON contract. All four are fixed and the sidecar now
+extracts the whole demo corpus.
+
+The **.NET** sidecar is still a complete implementation that has never been run in this
+environment: no SDK was reachable (GitHub release assets return HTTP 000 / an empty 302).
+Treat it as reviewed-by-hand rather than proven — that is exactly what the table above is
+for. CI builds and self-tests it on every push, and reports anything a runner cannot provide
+as an explicit `::warning::` instead of a silent pass.

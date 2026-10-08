@@ -184,6 +184,26 @@ jobs:
           go build -o /tmp/nexus-ingest .
           /tmp/nexus-ingest test
 
+      - name: Go — extract the demo corpus (JSON contract + coverage)
+        run: |
+          /tmp/nexus-ingest extract -corpus data/demo/corpus.json -out "$RUNNER_TEMP/extracted.json"
+          python - <<'PY'
+          import json
+          import os
+
+          payload = json.load(open(os.environ["RUNNER_TEMP"] + "/extracted.json"))
+          extractions = payload["extractions"]
+          assert extractions, "the sidecar extracted nothing"
+          nulls = [e["paper_id"] for e in extractions
+                   for key in ("topics", "methods", "datasets", "metrics", "claims", "provenance")
+                   if e[key] is None]
+          assert not nulls, f"null instead of [] in {sorted(set(nulls))[:3]}"
+          empty = [e["paper_id"] for e in extractions if not e["topics"]]
+          assert not empty, f"{len(empty)} papers were left without a topic"
+          records = sum(len(e["provenance"]) for e in extractions)
+          print(f"  · {{len(extractions)}} extractions · {{records}} provenance records · 0 papers without a topic")
+          PY
+
       - name: .NET — build and self-test the export sidecar
         run: |
           cd polyglot/dotnet

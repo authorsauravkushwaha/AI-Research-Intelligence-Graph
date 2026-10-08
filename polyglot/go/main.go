@@ -51,25 +51,50 @@ const Version = "1.0.0"
 
 // ------------------------------------------------------------------ types ---
 
+// Paper accepts both shapes NEXUS uses: the ingestion service's own wire format (`id`,
+// `abstract`) and a `data/demo/corpus.json` record (`arxiv_id`, `summary`, curated
+// `topics`/`methods`/`datasets`). `text()` and `key()` collapse the difference.
 type Paper struct {
-	ID         string `json:"id"`
-	Title      string `json:"title"`
-	Abstract   string `json:"abstract"`
-	Year       int    `json:"year"`
-	Venue      string `json:"venue"`
-	URL        string `json:"url"`
-	CitationCount int `json:"citation_count"`
-	Authors    []string `json:"authors"`
-	Institutions []string `json:"institutions"`
+	ID            string   `json:"id"`
+	ArXivID       string   `json:"arxiv_id"`
+	Title         string   `json:"title"`
+	Abstract      string   `json:"abstract"`
+	Summary       string   `json:"summary"`
+	Year          int      `json:"year"`
+	Venue         string   `json:"venue"`
+	Field         string   `json:"field"`
+	URL           string   `json:"url"`
+	CitationCount int      `json:"citation_count"`
+	Authors       []string `json:"authors"`
+	Institutions  []string `json:"institutions"`
+	CurationTier  string   `json:"corpus_tier"`
+}
+
+// text is the prose entity extraction runs over: the wire `abstract` when the caller has
+// one, otherwise the corpus record's editorial `summary`.
+func (p Paper) text() string {
+	if strings.TrimSpace(p.Abstract) != "" {
+		return p.Abstract
+	}
+	return p.Summary
+}
+
+// key is the identifier used in provenance: the ingestion id, or the arXiv id of a corpus
+// record, so an extraction traces back to the record it came from.
+func (p Paper) key() string {
+	if p.ID != "" {
+		return p.ID
+	}
+	return p.ArXivID
 }
 
 type Extraction struct {
-	PaperID   string   `json:"paper_id"`
-	Topics    []string `json:"topics"`
-	Methods   []string `json:"methods"`
-	Datasets  []string `json:"datasets"`
-	Metrics   []string `json:"metrics"`
-	Claims    []Claim  `json:"claims"`
+	PaperID    string       `json:"paper_id"`
+	Topics     []string     `json:"topics"`
+	Methods    []string     `json:"methods"`
+	Datasets   []string     `json:"datasets"`
+	Metrics    []string     `json:"metrics"`
+	Claims     []Claim      `json:"claims"`
 	Provenance []Provenance `json:"provenance"`
 }
 
@@ -114,6 +139,24 @@ var topicDict = []string{
 	"quantum computing", "cybersecurity", "healthcare ai", "llm agents", "alignment",
 	"evaluation", "simulation", "swarm intelligence", "human-ai collaboration",
 	"world models", "continual learning", "code generation", "scientific discovery",
+}
+
+// topicAliases maps an unambiguous surface mention onto the canonical topic the rest of
+// NEXUS stores, so a paper that says "persistent memory" or "long-term memory" is connected
+// to Memory Systems instead of being left with only its incidental mentions. Only multi-word
+// forms are listed — a bare "memory" or "agents" would over-match, and every alias is
+// recorded with the offset of the mention that triggered it.
+var topicAliases = []struct {
+	Mention   string
+	Canonical string
+}{
+	{"long-term memory", "memory systems"},
+	{"long term memory", "memory systems"},
+	{"persistent memory", "memory systems"},
+	{"episodic memory", "memory systems"},
+	{"working memory", "memory systems"},
+	{"multi agent", "multi-agent systems"},
+	{"multi-agent", "multi-agent systems"},
 }
 
 var methodDict = []string{
@@ -167,28 +210,129 @@ func phraseHits(text string, dict []string) []struct {
 	return out
 }
 
+// acronyms keeps the entity names the rest of NEXUS already uses (the graph topics and
+// methods the Python ingestion and the demo corpus store) instead of inventing a spelling.
+var acronyms = map[string]string{
+	"ai": "AI", "llm": "LLM", "llms": "LLMs", "nlp": "NLP", "rag": "RAG", "mcp": "MCP",
+	"gaia": "GAIA", "react": "ReAct", "rlhf": "RLHF", "dpo": "DPO", "ppo": "PPO",
+	"mappo": "MAPPO", "ippo": "IPPO", "lora": "LoRA", "webshop": "WebShop",
+	"alfworld": "ALFWorld", "humaneval": "HumanEval", "swe-bench": "SWE-bench",
+	"hotpotqa": "HotpotQA", "agentbench": "AgentBench", "q-learning": "Q-Learning",
+	"pagerank": "PageRank", "graphrag": "GraphRAG",
+}
+
+// stopWords stay lowercase inside a hyphenated phrase ("tree of thoughts",
+// "chain-of-thought"), which is how the same entities are named everywhere else.
+var stopWords = map[string]bool{
+	"of": true, "the": true, "and": true, "for": true, "with": true, "in": true,
+	"to": true, "on": true, "a": true, "an": true, "via": true, "per": true,
+}
+
+// topicHits = dictionary hits plus the canonicalising aliases above.
+func topicHits(text string) []struct {
+	Phrase string
+	Offset int
+} {
+	hits := phraseHits(text, topicDict)
+	lower := strings.ToLower(text)
+	for _, alias := range topicAliases {
+		idx := strings.Index(lower, alias.Mention)
+		if idx < 0 {
+			continue
+		}
+		already := false
+		for _, hit := range hits {
+			if hit.Phrase == alias.Canonical {
+				already = true
+				break
+			}
+		}
+		if !already {
+			hits = append(hits, struct {
+				Phrase string
+				Offset int
+			}{alias.Canonical, idx})
+		}
+	}
+	return hits
+}
+
 func titleCasePhrase(p string) string {
 	words := strings.Split(p, " ")
 	for i, w := range words {
-		if w == "" {
-			continue
-		}
-		if w == "ai" {
-			words[i] = "AI"
-			continue
-		}
-		if w == "llm" {
-			words[i] = "LLM"
-			continue
-		}
-		words[i] = strings.ToUpper(w[:1]) + w[1:]
+		words[i] = titleCaseWord(w, i == 0)
 	}
 	return strings.Join(words, " ")
 }
 
+// titleCaseWord capitalises each hyphen/slash-separated segment ("multi-agent systems" →
+// "Multi-Agent Systems"), keeps known acronyms exact, and leaves internal stop words alone
+// ("tree of thoughts" → "Tree of Thoughts", "chain-of-thought" → "Chain-of-Thought").
+func titleCaseWord(w string, first bool) string {
+	if w == "" {
+		return w
+	}
+	if v, ok := acronyms[strings.ToLower(w)]; ok {
+		return v
+	}
+	segs := strings.FieldsFunc(w, func(r rune) bool { return r == '-' || r == '/' })
+	if len(segs) > 1 {
+		sep := "-"
+		if strings.Contains(w, "/") {
+			sep = "/"
+		}
+		for i, seg := range segs {
+			lower := strings.ToLower(seg)
+			if v, ok := acronyms[lower]; ok {
+				segs[i] = v
+				continue
+			}
+			if i > 0 && stopWords[lower] {
+				segs[i] = lower
+				continue
+			}
+			segs[i] = strings.ToUpper(lower[:1]) + lower[1:]
+		}
+		return strings.Join(segs, sep)
+	}
+	lower := strings.ToLower(w)
+	if !first && stopWords[lower] {
+		return lower
+	}
+	return strings.ToUpper(lower[:1]) + lower[1:]
+}
+
+// splitSentences splits on whitespace that follows a sentence-ending punctuation mark.
+//
+// Go compiles regular expressions with RE2, which has no lookbehind — the original
+// `(?<=[.!?])\s+` pattern made regexp.MustCompile panic at start-up, so the sidecar's own
+// self-test exited 2 before extracting anything. A two-pass scan does the same job.
+func splitSentences(text string) []string {
+	var out []string
+	start := 0
+	for i := 0; i < len(text); i++ {
+		switch text[i] {
+		case '.', '!', '?':
+			if i+1 < len(text) && (text[i+1] == ' ' || text[i+1] == '\t' || text[i+1] == '\n') {
+				out = append(out, text[start:i+1])
+				j := i + 1
+				for j < len(text) && (text[j] == ' ' || text[j] == '\t' || text[j] == '\n') {
+					j++
+				}
+				start = j
+				i = j - 1
+			}
+		}
+	}
+	if start < len(text) {
+		out = append(out, text[start:])
+	}
+	return out
+}
+
 func extractClaims(abstract string, limit int) []Claim {
-	var claims []Claim
-	for _, sentence := range regexp.MustCompile(`(?<=[.!?])\s+`).Split(abstract, -1) {
+	claims := []Claim{}
+	for _, sentence := range splitSentences(abstract) {
 		s := strings.TrimSpace(sentence)
 		if len(s) < 45 || len(s) > 400 {
 			continue
@@ -212,13 +356,24 @@ func extractClaims(abstract string, limit int) []Claim {
 }
 
 func Extract(p Paper) Extraction {
-	ex := Extraction{PaperID: p.ID}
+	// slices start empty, never nil: `json:"topics"` must be [] rather than null, because
+	// the consumers (Python ingestion, checks) iterate it directly
+	ex := Extraction{
+		PaperID:    p.key(),
+		Topics:     []string{},
+		Methods:    []string{},
+		Datasets:   []string{},
+		Metrics:    []string{},
+		Claims:     []Claim{},
+		Provenance: []Provenance{},
+	}
+	abstract := p.text()
 	seen := map[string]bool{}
 	add := func(kind string, phrases []struct {
 		Phrase string
 		Offset int
 	}, field string) []string {
-		var names []string
+		names := []string{}
 		for _, h := range phrases {
 			name := titleCasePhrase(h.Phrase)
 			if !seen[kind+":"+name] {
@@ -232,8 +387,8 @@ func Extract(p Paper) Extraction {
 		return names
 	}
 	// Title hits are weighted more strongly: they usually name the core topic.
-	titleTopics := phraseHits(p.Title, topicDict)
-	absTopics := phraseHits(p.Abstract, topicDict)
+	titleTopics := topicHits(p.Title)
+	absTopics := topicHits(abstract)
 	if len(titleTopics) == 0 && len(absTopics) == 0 {
 		// fall back to the paper's own title keywords so every paper is connected
 		absTopics = []struct {
@@ -242,10 +397,10 @@ func Extract(p Paper) Extraction {
 		}{{Phrase: strings.ToLower(firstMeaningfulWords(p.Title, 3)), Offset: 0}}
 	}
 	ex.Topics = append(add("Topic", titleTopics, "title"), add("Topic", absTopics, "abstract")...)
-	ex.Methods = add("Method", phraseHits(p.Abstract+" "+p.Title, methodDict), "abstract")
-	ex.Datasets = add("Dataset", phraseHits(p.Abstract+" "+p.Title, datasetDict), "abstract")
-	ex.Metrics = add("Metric", phraseHits(p.Abstract, metricDict), "abstract")
-	ex.Claims = extractClaims(p.Abstract, 3)
+	ex.Methods = add("Method", phraseHits(abstract+" "+p.Title, methodDict), "abstract")
+	ex.Datasets = add("Dataset", phraseHits(abstract+" "+p.Title, datasetDict), "abstract")
+	ex.Metrics = add("Metric", phraseHits(abstract, metricDict), "abstract")
+	ex.Claims = extractClaims(abstract, 3)
 	ex.Topics = dedupe(ex.Topics)
 	ex.Methods = dedupe(ex.Methods)
 	ex.Datasets = dedupe(ex.Datasets)
@@ -269,7 +424,7 @@ func firstMeaningfulWords(s string, n int) string {
 
 func dedupe(in []string) []string {
 	seen := map[string]bool{}
-	var out []string
+	out := []string{}
 	for _, s := range in {
 		if s == "" || seen[s] {
 			continue
@@ -380,8 +535,8 @@ func embeddingLocal(texts []string, model string) EmbeddingResponse {
 // -------------------------------------------------------------- ingestion ---
 
 type FetchResult struct {
-	Papers []Paper `json:"papers"`
-	Source string  `json:"source"`
+	Papers []Paper  `json:"papers"`
+	Source string   `json:"source"`
 	Errors []string `json:"errors"`
 }
 
@@ -582,6 +737,29 @@ func serve(port int) {
 	}
 }
 
+// loadPapers accepts either a bare array of papers or a NEXUS corpus object, which is what
+// `python scripts/build_corpus.py` writes to data/demo/corpus.json.
+func loadPapers(raw []byte) ([]Paper, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		var papers []Paper
+		if err := json.Unmarshal(trimmed, &papers); err != nil {
+			return nil, fmt.Errorf("corpus is not a JSON array of papers: %w", err)
+		}
+		return papers, nil
+	}
+	var wrapper struct {
+		Papers []Paper `json:"papers"`
+	}
+	if err := json.Unmarshal(trimmed, &wrapper); err != nil {
+		return nil, fmt.Errorf("corpus is not valid JSON: %w", err)
+	}
+	if wrapper.Papers == nil {
+		return nil, fmt.Errorf("corpus object has no \"papers\" array")
+	}
+	return wrapper.Papers, nil
+}
+
 func engineName() string {
 	if os.Getenv("NEXUS_EMBEDDINGS_URL") != "" {
 		return "provider-proxy"
@@ -610,7 +788,7 @@ func runTests() int {
 		}
 	}
 	p := Paper{
-		ID:   "test-1",
+		ID:    "test-1",
 		Title: "Long-Term Memory for Multi-Agent Coordination",
 		Abstract: "We study persistent memory in multi-agent systems. " +
 			"Our method improves success rate on GAIA by 12% using chain-of-thought planning. " +
@@ -687,9 +865,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		var papers []Paper
-		if err := json.Unmarshal(raw, &papers); err != nil {
-			log.Fatalf("corpus must be a JSON array of papers: %v", err)
+		papers, err := loadPapers(raw)
+		if err != nil {
+			log.Fatalf("%v (expected a JSON array of papers, or a corpus object with a \"papers\" array): %s", err, *corpus)
 		}
 		extractions := make([]Extraction, 0, len(papers))
 		for _, p := range papers {
