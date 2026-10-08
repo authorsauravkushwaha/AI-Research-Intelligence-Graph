@@ -1,8 +1,8 @@
 /* NEXUS front end — vanilla ES modules + three.js (vendored).
    No framework, no CDN: everything runs from the FastAPI server. */
 
-import * as THREE from "/vendor/three.module.js";
-import { OrbitControls } from "/vendor/OrbitControls.js";
+import * as THREE from "../vendor/three.module.js";
+import { OrbitControls } from "../vendor/OrbitControls.js";
 
 /* ------------------------------------------------------------------ util */
 const $ = (sel, root = document) => root.querySelector(sel);
