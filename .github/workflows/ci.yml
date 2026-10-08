@@ -138,11 +138,31 @@ jobs:
       - name: Build the static site (the engines run in-process)
         run: python scripts/build_site.py --out site
 
-      - name: Replay every route the UI calls, and the Kotlin planner fixture
-        run: node scripts/check_site_data.mjs --out "$RUNNER_TEMP/js.json"
+      - name: Verify the snapshot (every recorded engine answer, replayed through the shipped site.js)
+        run: node scripts/check_site_data.mjs --site site --json "$RUNNER_TEMP/site-checks.json"
 
-      - name: Diff the snapshot against the live API
-        run: python scripts/compare_site_data.py "$RUNNER_TEMP/js.json"
+      - name: Publish the verification summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os, pathlib
+          report = pathlib.Path(os.environ["RUNNER_TEMP"]) / "site-checks.json"
+          if not report.exists():
+              print("### static snapshot verification\n")
+              print("no report produced — the checker did not run")
+              raise SystemExit(0)
+          data = json.loads(report.read_text())
+          summary = data["summary"]
+          print("### static snapshot verification\n")
+          print(f"- checks: **{summary['total'] - summary['failed']}/{summary['total']} passed**")
+          print(f"- values compared against the engine's recorded answers: {summary['compared']}")
+          print(f"- build version: {data['version']}")
+          for note in data.get("notes", [])[:4]:
+              print(f"- {note}")
+          for check in data["checks"]:
+              if not check["ok"]:
+                  print(f"- FAILED: {check['name']}")
+          PY
 
       - name: Every asset the app shell needs must exist
         run: |
@@ -225,7 +245,7 @@ jobs:
             exit 1
           fi
           if ! dotnet run -c Release --project NexusExport.csproj --no-build -- test > "$RUNNER_TEMP/dotnet-test.log" 2>&1; then
-            echo "::error title=dotnet self-test failed::$(tail -12 "$RUNNER_TEMP/dotnet-test.log" | tr '\n' '|')"
+            echo "::error title=dotnet self-test failed::$(grep -i 'FAIL' "$RUNNER_TEMP/dotnet-test.log" | head -6 | tr '\n' '|')"
             cat "$RUNNER_TEMP/dotnet-test.log"
             exit 1
           fi

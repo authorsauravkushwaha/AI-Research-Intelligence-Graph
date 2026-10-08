@@ -644,7 +644,6 @@ class MemoryGraphStore:
             adjacency[e.dst].append(e)
 
         visited: set[str] = set()
-        notes: list[str] = []
         truncated = False
         frontier = list(dict.fromkeys(seeds))
         for level in range(max(0, min(depth, 3)) + 1):
@@ -684,8 +683,12 @@ class MemoryGraphStore:
                 if sub.add_edge(e):
                     edge_count += 1
 
+        # Report the truncation on the payload, not just in a local: the front end keys its
+        # "truncated (expand on demand)" hint off `truncated`, and a bounded view that stays
+        # silent about the bound is exactly the kind of quiet half-truth this prototype avoids.
+        sub.truncated = truncated
         if truncated:
-            notes.append(
+            sub.notes.append(
                 f"View truncated to {len(sub.nodes)} nodes / {len(sub.edges)} edges "
                 "(progressive expansion keeps the first paint fast — expand a node to see more)."
             )

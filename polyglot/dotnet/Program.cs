@@ -19,9 +19,11 @@
 
 using System.Globalization;
 using System.Net;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Xml;
 using System.Xml.Linq;
 
 namespace Nexus.Export;
@@ -93,7 +95,14 @@ public static class Exporter
         }
 
         doc.Add(new XElement(ns + "graphml", new XAttribute(XNamespace.Xmlns + "n0", ns), keyElements, g));
-        return doc.ToString();
+
+        // XDocument.ToString() silently drops the XML declaration, so a GraphML file written
+        // that way is not a well-formed document per the GraphML spec and no viewer will open
+        // it. Serialise through an XmlWriter instead, with a UTF-8 declaration at the top.
+        using var stream = new MemoryStream();
+        var settings = new XmlWriterSettings { Indent = true, Encoding = new UTF8Encoding(false) };
+        using (var writer = XmlWriter.Create(stream, settings)) doc.Save(writer);
+        return Encoding.UTF8.GetString(stream.ToArray());
     }
 
     private static void AddNum(JsonNode? n, string prop, string key, Action<string, string> sink)

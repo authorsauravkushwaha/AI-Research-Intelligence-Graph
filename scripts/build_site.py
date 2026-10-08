@@ -1,36 +1,55 @@
 #!/usr/bin/env python3
-"""Build the static website + installable app from the running NEXUS engines.
+"""Build the static NEXUS site — the website and installable app published on GitHub Pages.
 
-    python scripts/build_site.py               # writes ./site
-    python scripts/build_site.py --out docs-site --topics 12
+    python scripts/build_site.py                 # writes ./site
+    python scripts/build_site.py --out site
 
-What this does
---------------
-The NEXUS UI is a static front end; the intelligence lives behind `/api/*`. This script
-**records the API** by driving the real application through FastAPI's TestClient — the
-same store, gap engine, GraphRAG and agent the server exposes — and writes the answers
-into `site/data/`. The result is a self-contained website that runs on GitHub Pages (or
-any static host) with no backend, no CDN and no build step at runtime.
+Why this exists
+---------------
+GitHub Pages serves files; NEXUS is a FastAPI application with a knowledge graph behind it.
+So the published site is not a rewrite of the demo and not a mock-up: this script drives the
+**real application** in-process (`TestClient(create_app())` — the same store, engines,
+GraphRAG pipeline and agent the API serves), records what the expensive engines answer, and
+ships the graph itself so the cheap views can be recomputed live in the browser.
 
-Nothing here is hand-written sample data: every recorded payload is the engine's own
-output, and `site/data/index.json` says so, including which scopes and questions were
-precomputed. The static layer in `frontend/assets/site.js` answers the rest (graph
-queries, paper lookups, shortest paths, the DSL planner, the agent's graph-template
-answers) by computing over the exported graph in the browser — and
-`scripts/check_site_data.mjs` checks those computations against these recordings.
+What lands in the output folder
+-------------------------------
+  index.html, assets/, vendor/    the front end, with absolute paths rewritten to relative ones
+  assets/site.js                  the static data layer: it answers /api/* from ./data/
+  data/graph.json                 the full corpus export (nodes, edges, metrics) — the app's graph
+  data/papers.json                every paper row the Paper Explorer can page through
+  data/<recorded>.json            engine output recorded at build time (see RECORDED below)
+  data/index.json                 build manifest: version, corpus, counts, every file + size
+  manifest.webmanifest, sw.js     makes it an installable, offline-capable app (PWA)
+  icons/                          app icons drawn here (Pillow), including a maskable one
+  .nojekyll                       tells GitHub Pages to serve the files as-is
 
-Exit code is non-zero if a recording fails, so CI can gate the publish.
+RECORDED (engine output that cannot be recomputed in a browser):
+  gaps--<topic>.json              the gap engine's scored opportunities (the killer feature)
+  report--<topic>.json/.md        the opportunity report, both renderings
+  agent--<question>.json          the research agent's answer *with its explainability block*
+  agent-stream--<question>.txt    the recorded SSE stage trace the UI replays
+  explorer--<scope>.json          analytics for the demo scopes
+  timeline--<topic>.json          per-topic publishing timelines
+  export-cypher.txt               the Cypher that recreates this graph in Neo4j
+
+COMPUTED IN THE BROWSER (documented in docs/DEPLOY.md):
+  /api/graph, /api/graph/expand, /api/graph/neighbours, /api/graph/path, /api/nodes,
+  /api/papers, /api/search, /api/timeline, /api/explorer, /api/plan (a live JS planner).
+
+Every recorded file is a verbatim API response; `scripts/check_site_data.mjs` replays every
+recorded answer through the shipped browser layer and diffs the two field by field, so the
+live engine, so the published site cannot drift from the application.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
+import os
 import re
 import shutil
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -38,581 +57,560 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-DEFAULT_TOPICS = (
-    "AI Agents", "Tool Use", "Multi-Agent Systems", "AI Safety", "Evaluation",
-    "Agent Memory", "Reasoning", "Retrieval-Augmented Generation", "Benchmarking",
-    "Human-AI Interaction",
-)
+FRONTEND = ROOT / "frontend"
 
-AGENT_QUESTIONS = (
-    "What are the most important research gaps in AI agents?",
+# The scopes the published demo precomputes. They are the ones the README, the demo script
+# and the UI's own examples use; anything else falls back to an honest empty state that
+# names the command to run for a live answer.
+DEMO_TOPICS = [
+    "AI Agents",
+    "Tool Use",
+    "Multi-Agent Systems",
+    "AI Safety",
+    "Evaluation",
+    "Agent Memory",
+]
+
+# Questions the agent answers at build time (docs/DEMO_SCRIPT.md + the UI's follow-ups).
+DEMO_QUESTIONS = [
     "Which claims contradict each other about agent memory?",
-    "What are the most important papers?",
-    "Where are the research gaps in agent memory?",
+    "What are the most important research gaps in AI agents?",
+    "What should I read first?",
     "Which papers bridge AI Agents and Tool Use?",
-    "What connects Multi-Agent Systems and Evaluation?",
-    "Which topics does ReAct connect?",
+    "What are the most important papers?",
     "Who are the most central authors?",
-    "What are the most active topics in the corpus?",
     "Which communities exist in this corpus?",
     "How do I tell a prediction from a fact?",
-    "What should I read first?",
-)
 
-REFERENCE_PAIRS = (
-    ("paper:2210.03629", "topic:agent-memory"),
-    ("paper:2303.11366", "topic:multi-agent-systems"),
-    ("topic:tool-use", "topic:reasoning"),
-)
+    # GraphRAG follow-ups (multi-hop: the reason vector search alone is not enough)
+    "What connects Multi-Agent Systems and Evaluation?",
+    "Which topics does ReAct connect?",
+]
 
-# --------------------------------------------------------------- helpers -----
+# DSL queries whose real plan is recorded next to the page, so the browser planner
+# (assets/site.js) can be compared against the server's Kotlin-backed planner.
+PLAN_QUERIES = [
+    "topic:\"AI Agents\" type in (Paper, Method) limit 40",
+    "topic:\"Tool Use\" year >= 2023 sort by pagerank limit 25",
+    "type in (Paper) text contains memory limit 10",
+    "community 3 type in (Paper) limit 10",
+    "rel in (CONTRADICTS) limit 10",
+    "topic:\"AI Agents\" type in (Paper) depth 2 limit 30",
+]
+
+REFERENCE_PAPERS = [
+    "paper:2210.03629",  # ReAct — the paper the demo clicks first
+    "paper:2303.11366",  # Reflexion
+    "paper:2005.14165",  # GPT-3
+    "paper:2201.11903",  # chain-of-thought
+    "paper:2501.04227",
+]
+
+REFERENCE_NODES = [
+    "topic:agent-memory",
+    "topic:tool-use",
+    "method:chain-of-thought",
+    "author:noah-shinn",
+    "dataset:gaia",
+]
+
+REFERENCE_SEARCHES = ["agent memory", "tool use", "evaluation", "chain-of-thought"]
+
+
+# --------------------------------------------------------------------------- util
 
 
 def slug(text: str | None) -> str:
-    """Stable file-name key for a scope or question ('' -> 'default')."""
+    """Filesystem-safe key for a topic or question (used in recorded file names)."""
     if not text:
         return "default"
-    cleaned = re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-")
-    return cleaned[:64] or "default"
+    cleaned = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return cleaned[:60] or "default"
 
 
-def write_json(path: Path, payload: Any) -> int:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str)
-    path.write_text(text, encoding="utf-8")
-    return len(text)
-
-
-def write_text(path: Path, text: str) -> int:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    return len(text)
-
-
-# ------------------------------------------------------------- recording -----
+def log(message: str) -> None:
+    print(message, flush=True)
 
 
 class Recorder:
-    """Drives the real app and records its answers, or fails loudly."""
+    """Writes recorded API responses and remembers what was written where."""
 
-    def __init__(self, out: Path) -> None:
-        from fastapi.testclient import TestClient
+    def __init__(self, data_dir: Path) -> None:
+        self.dir = data_dir
+        self.dir.mkdir(parents=True, exist_ok=True)
+        self.files: dict[str, dict[str, Any]] = {}
 
-        from backend.api.app import create_app
-
-        self.client = TestClient(create_app())
-        self.out = out
-        self.recorded: list[dict[str, Any]] = []
-        self.bytes = 0
-
-    def get(self, path: str, key: str | None = None, **params: Any) -> Any:
-        resp = self.client.get(path, params=params or None)
-        return self._save(path, resp, key)
-
-    def post(self, path: str, body: Any, key: str | None = None) -> Any:
-        resp = self.client.post(path, json=body)
-        return self._save(path, resp, key)
-
-    def raw(self, path: str, body: Any | None = None) -> str:
-        resp = self.client.post(path, json=body) if body is not None else self.client.get(path)
-        if resp.status_code != 200:
-            raise SystemExit(f"recording failed: {path} -> HTTP {resp.status_code} {resp.text[:200]}")
-        self.bytes += len(resp.text)
-        self.recorded.append({"path": path, "kind": "text", "bytes": len(resp.text)})
-        return resp.text
-
-    def _save(self, path: str, resp: Any, key: str | None) -> Any:
-        if resp.status_code != 200:
-            raise SystemExit(f"recording failed: {path} -> HTTP {resp.status_code} {resp.text[:200]}")
-        payload = resp.json()
-        if key:
-            size = write_json(self.out / "data" / f"{key}.json", payload)
-            self.bytes += size
-            self.recorded.append({"path": path, "key": f"{key}.json", "bytes": size, "kind": "json"})
-        return payload
-
-
-
-def export_graph_dataset(legend: dict[str, Any], store: Any = None) -> dict[str, Any]:
-    """The dataset `frontend/assets/site.js` computes over: one file, no server.
-
-    Every node carries the metrics the C++ kernel computed (PageRank, betweenness,
-    degree, Louvain community) and its full property set, so the browser can rebuild
-    paper/node detail, filtering and ranking without a second round trip.
-    """
-    from backend.graph.factory import get_state
-    from backend.models.graph import NODE_COLORS
-
-    store = store or get_state().store
-    analytics = store.analytics
-    nodes = []
-    for node in store.nodes.values():
-        nodes.append({
-            "id": node.id,
-            "label": node.name,
-            "type": node.label,
-            "color": NODE_COLORS.get(node.label),
-            "props": node.props,
-            "pagerank": round(analytics.pagerank.get(node.id, 0.0), 6),
-            "betweenness": round(analytics.betweenness.get(node.id, 0.0), 6),
-            "degree": analytics.degree.get(node.id, 0),
-            "community": analytics.communities.get(node.id, -1),
-        })
-    edges = [
-        {
-            "id": f"{edge.src}|{edge.type}|{edge.dst}",   # GEdge has no id of its own
-            "source": edge.src,
-            "target": edge.dst,
-            "type": edge.type,
-            "weight": edge.props.get("weight"),
-            "provenance": edge.props.get("provenance"),
+    def json(self, name: str, payload: Any, kind: str, source: str) -> None:
+        path = self.dir / name
+        path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n")
+        self.files[name] = {
+            "kind": kind,
+            "source": source,
+            "bytes": path.stat().st_size,
         }
-        for edge in store.edges
-    ]
-    communities = [
-        {
-            "id": profile.get("id"),
-            "name": profile.get("name"),
-            "community_index": profile.get("community_index"),
-            "paper_count": profile.get("paper_count"),
-            "topic_count": profile.get("topic_count"),
-            "method_count": profile.get("method_count"),
-            "top_topics": profile.get("top_topics", []),
-        }
-        for profile in (store.community_profiles or [])
-    ]
-    return {
-        "format": "nexus-static-graph",
-        "generated_by": "scripts/build_site.py",
-        "graph_source": "MemoryGraphStore at build time — the same store the API serves",
-        "counts": {"nodes": len(nodes), "edges": len(edges)},
-        "legend": legend,
-        "nodes": nodes,
-        "edges": edges,
-        "communities": communities,
-    }
+
+    def text(self, name: str, payload: str, kind: str, source: str) -> None:
+        path = self.dir / name
+        path.write_text(payload if payload.endswith("\n") else payload + "\n")
+        self.files[name] = {"kind": kind, "source": source, "bytes": path.stat().st_size}
+
+    def blob(self, name: str, payload: bytes, kind: str, source: str) -> None:
+        path = self.dir / name
+        path.write_bytes(payload)
+        self.files[name] = {"kind": kind, "source": source, "bytes": path.stat().st_size}
 
 
-def record_scope(rec: Recorder, store: Any, topic: str, key: str) -> None:
-    """Store the gap engine's own resolution for a scope.
-
-    Topic resolution is scored (aliases, head-noun bonus, a similarity floor), so the
-    browser does not try to reproduce it: the resolved paper/topic/method ids are shipped
-    instead, which keeps the static timeline and explorer *exact* for these scopes.
-    """
-    from backend.engine.gaps import GapEngine
-
-    engine = GapEngine(store)
-    paper_ids, topic_ids, method_ids = engine.scope(topic or None, min_papers=1)
-    write_json(rec.out / "data" / f"scope--{key}.json", {
-        "topic": topic or None,
-        "papers": sorted(paper_ids),
-        "topics": sorted(topic_ids),
-        "methods": sorted(method_ids),
-        "resolution": engine.last_resolution,
-    })
+# ------------------------------------------------------------------------- icons
 
 
-def topic_names(store: Any, limit: int) -> list[str]:
-    """The demo topics first, then the most-studied topics in the corpus.
-
-    A scope does not have to be a Topic node — the gap engine resolves phrases such as
-    "AI Agents" across several topics — so the documented demo scopes are always
-    precomputed, and the rest of the list is the corpus' most-connected topics.
-    """
-    by_degree = sorted(
-        (node for node in store.nodes.values() if node.label == "Topic"),
-        key=lambda node: -len(store.adjacency.get(node.id, []) if hasattr(store, "adjacency") else []),
-    )
-    names = [node.name for node in by_degree] or []
-    ordered: list[str] = []
-    for name in list(DEFAULT_TOPICS) + names:
-        if name and name not in ordered:
-            ordered.append(name)
-    return ordered[: max(limit, len(DEFAULT_TOPICS))]
-
-
-# ------------------------------------------------------------------ icons ----
-
-
-def build_icons(icons: Path) -> dict[str, int]:
-    """Deterministic PNG app icons, drawn with Pillow (no font needed).
-
-    Pillow is a build-only dependency (`scripts/requirements-site.txt`). Without it the
-    site still builds — any icons already in the output folder are kept, and the build
-    says so instead of shipping a manifest that points at missing files.
-    """
-    try:
-        from PIL import Image, ImageDraw, ImageFilter
-    except ImportError:  # pragma: no cover - exercised by hand without Pillow
-        existing = sorted(icons.glob("*.png")) if icons.is_dir() else []
-        if not existing:
-            raise SystemExit(
-                "building the PWA icons needs Pillow:\n"
-                "    pip install -r scripts/requirements-site.txt\n"
-                "(the site itself builds without it, but the installable app needs its icons)"
-            )
-        log(f"  ! Pillow is not installed — keeping the {len(existing)} icon(s) already in {icons}")
-        return {path.name: path.stat().st_size for path in existing}
-
-    BG = (7, 11, 22, 255)
-    CYAN = (97, 228, 255, 255)
-    VIOLET = (167, 139, 250, 255)
-    GREEN = (52, 211, 153, 255)
-    AMBER = (251, 191, 36, 255)
-
-    def draw_icon(size: int, scale: float = 0.78) -> Image.Image:
-        ss = 2  # supersample for smooth edges
-        w = size * ss
-        img = Image.new("RGBA", (w, w), BG)
-        glow = Image.new("RGBA", (w, w), (0, 0, 0, 0))
-        gd = ImageDraw.Draw(glow)
-        d = ImageDraw.Draw(img)
-        c = w / 2
-        r = w * 0.5 * scale
-        # a small knowledge graph: hub + ring, edges drawn as glowing lines
-        nodes = [
-            (c, c, r * 0.16, CYAN),           # hub
-            (c + r * 0.95, c - r * 0.55, r * 0.11, VIOLET),
-            (c + r * 0.15, c + r * 0.98, r * 0.11, GREEN),
-            (c - r * 0.92, c + r * 0.42, r * 0.10, AMBER),
-            (c - r * 0.55, c - r * 0.92, r * 0.10, VIOLET),
-            (c + r * 0.72, c + r * 0.72, r * 0.08, CYAN),
-        ]
-        for (x1, y1, _, col) in nodes[1:]:
-            gd.line([c, c, x1, y1], fill=(col[0], col[1], col[2], 190), width=max(2, int(r * 0.045)))
-        gd.line([nodes[1][0], nodes[1][1], nodes[5][0], nodes[5][1]], fill=(*VIOLET[:3], 130), width=max(2, int(r * 0.035)))
-        gd.line([nodes[2][0], nodes[2][1], nodes[5][0], nodes[5][1]], fill=(*GREEN[:3], 130), width=max(2, int(r * 0.035)))
-        img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(w * 0.02)))
-        for (x, y, rad, col) in nodes:
-            d.ellipse([x - rad, y - rad, x + rad, y + rad], fill=col)
-        # subtle ring to read as a graph, not a blob
-        d.ellipse([c - r * 1.12, c - r * 1.12, c + r * 1.12, c + r * 1.12],
-                  outline=(97, 228, 255, 90), width=max(2, int(r * 0.02)))
-        return img.resize((size, size), Image.LANCZOS)
+def build_icons(icons: Path) -> list[str]:
+    """Draw the app icons with Pillow (no font file needed, no binary assets in git)."""
+    from PIL import Image, ImageDraw
 
     icons.mkdir(parents=True, exist_ok=True)
-    written: dict[str, int] = {}
-    plan = {
-        "icon-192.png": 192,
-        "icon-512.png": 512,
-        "icon-maskable-512.png": 512,
-        "apple-touch-icon.png": 180,
-        "favicon-64.png": 64,
-    }
-    for name, size in plan.items():
-        scale = 0.60 if "maskable" in name else 0.78
-        image = draw_icon(size, scale=scale)
-        path = icons / name
-        image.save(path, "PNG", optimize=True)
-        written[name] = path.stat().st_size
+    sizes = {"icon-192.png": (192, 0.86), "icon-512.png": (512, 0.86), "icon-maskable-512.png": (512, 0.66),
+             "apple-touch-icon.png": (180, 0.86), "favicon-64.png": (64, 0.86)}
+    written = []
+    for name, (size, extent) in sizes.items():
+        scale = 4  # supersample, then downscale: cheap antialiasing
+        w = size * scale
+        img = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        # navy tile with a soft gradient ring (the header mark, at app-icon scale)
+        draw.rounded_rectangle([0, 0, w - 1, w - 1], radius=int(w * 0.22), fill=(10, 15, 30, 255))
+        cx = cy = w / 2
+        ring = w * 0.5 * extent
+        for i in range(w):
+            t = i / max(1, w - 1)
+            colour = (int(97 + t * 70), int(228 - t * 89), 255, 255)
+            draw.arc([cx - ring, cy - ring, cx + ring, cy + ring], 200 + i % 1, 340, fill=colour,
+                     width=max(2, int(w * 0.022)))
+        nodes = [
+            (cx, cy, w * 0.055, (97, 228, 255, 255)),                       # centre
+            (cx + ring * 0.92, cy - ring * 0.72, w * 0.030, (167, 139, 250, 255)),
+            (cx - ring * 0.95, cy - ring * 0.55, w * 0.028, (52, 211, 153, 255)),
+            (cx - ring * 0.80, cy + ring * 0.78, w * 0.030, (251, 191, 36, 255)),
+            (cx + ring * 0.88, cy + ring * 0.70, w * 0.026, (244, 114, 182, 255)),
+        ]
+        for nx, ny, r, colour in nodes:
+            draw.line([cx, cy, nx, ny], fill=(120, 170, 210, 210), width=max(2, int(w * 0.012)))
+        for nx, ny, r, colour in nodes:
+            draw.ellipse([nx - r, ny - r, nx + r, ny + r], fill=colour)
+        img = img.resize((size, size), Image.LANCZOS)
+        img.save(icons / name, "PNG", optimize=True)
+        written.append(name)
     return written
 
 
-# ------------------------------------------------------------- assembled -----
+# ------------------------------------------------------------------- PWA shell
+
 
 MANIFEST = {
     "name": "NEXUS — AI Research Intelligence Graph",
     "short_name": "NEXUS",
     "description": (
-        "A knowledge-graph research intelligence prototype: graph algorithms, GraphRAG, a "
-        "transparent research-gap finder, claim-conflict detection and an explainable agent."
+        "A graph-native research intelligence prototype: knowledge graph, graph algorithms, "
+        "GraphRAG, a transparent gap finder and an explainable research agent."
     ),
     "start_url": "./index.html",
     "scope": "./",
     "display": "standalone",
+    "display_override": ["standalone", "minimal-ui"],
     "orientation": "any",
     "background_color": "#070b16",
     "theme_color": "#070b16",
     "categories": ["education", "productivity", "science"],
     "icons": [
-        {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
-        {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+        {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+        {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
         {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
     ],
 }
 
-SERVICE_WORKER = """/* NEXUS service worker — generated by scripts/build_site.py (no hand edits).
-   Strategy: the app shell is precached; recorded data is served cache-first with a
-   background refresh, so a second visit works offline and never shows a spinner. */
-const VERSION = "%(version)s";
-const SHELL = %(shell)s;
-const CACHE = `nexus-shell-${VERSION}`;
-const DATA = `nexus-data-${VERSION}`;
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
-});
+SERVICE_WORKER = """/* NEXUS service worker — generated by scripts/build_site.py, do not edit by hand.
+   Strategy: the app shell is precached at install time; recorded data is served from the
+   cache with a background refresh; navigations are network-first with an offline fallback,
+   so the installed app opens with no connection instead of showing the browser error page. */
+const VERSION = "{version}";
+const SHELL = {shell};
+const SHELL_CACHE = `nexus-shell-${{VERSION}}`;
+const DATA_CACHE = `nexus-data-${{VERSION}}`;
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => !k.endsWith(VERSION)).map((k) => caches.delete(k)));
+self.addEventListener("install", (event) => {{
+  event.waitUntil((async () => {{
+    const cache = await caches.open(SHELL_CACHE);
+    await cache.addAll(SHELL.map((path) => new Request(path, {{ cache: "reload" }})));
+    await self.skipWaiting();
+  }})());
+}});
+
+self.addEventListener("activate", (event) => {{
+  event.waitUntil((async () => {{
+    const keep = new Set([SHELL_CACHE, DATA_CACHE]);
+    for (const key of await caches.keys()) {{
+      if (!keep.has(key)) await caches.delete(key);
+    }}
     await self.clients.claim();
-  })());
-});
+  }})());
+}});
 
-self.addEventListener("fetch", (event) => {
+self.addEventListener("message", (event) => {{
+  if (event.data === "skip-waiting") self.skipWaiting();
+}});
+
+self.addEventListener("fetch", (event) => {{
   const request = event.request;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
-  if (url.origin !== location.origin) return;
-  const isData = url.pathname.includes("/data/");
+  if (url.origin !== self.location.origin) return;
 
-  event.respondWith((async () => {
-    const cache = await caches.open(isData ? DATA : CACHE);
-    const cached = await cache.match(request);
-    if (cached) {
-      if (isData) {
-        event.waitUntil(fetch(request).then((fresh) => fresh.ok && cache.put(request, fresh.clone())).catch(() => {}));
-      }
-      return cached;
-    }
-    try {
-      const fresh = await fetch(request);
-      if (fresh.ok) cache.put(request, fresh.clone());
-      return fresh;
-    } catch (err) {
-      if (request.mode === "navigate") return (await caches.match("./index.html")) || Response.error();
-      throw err;
-    }
-  })());
-});
+  // The UI's API calls are answered inside the page by assets/site.js, so the only data
+  // requests that reach the network are the snapshot files under ./data/.
+  const isData = url.pathname.includes("/data/");
+  if (isData) {{
+    event.respondWith((async () => {{
+      const cache = await caches.open(DATA_CACHE);
+      const cached = await cache.match(request, {{ ignoreSearch: true }});
+      const network = fetch(request)
+        .then((response) => {{
+          if (response && response.ok) cache.put(request, response.clone());
+          return response;
+        }})
+        .catch(() => null);
+      return cached || (await network) || Response.error();
+    }})());
+    return;
+  }}
+
+  if (request.mode === "navigate") {{
+    event.respondWith((async () => {{
+      try {{
+        const response = await fetch(request);
+        const cache = await caches.open(SHELL_CACHE);
+        cache.put("./index.html", response.clone());
+        return response;
+      }} catch (err) {{
+        const cache = await caches.open(SHELL_CACHE);
+        return (await cache.match("./index.html")) || (await cache.match("./")) || Response.error();
+      }}
+    }})());
+    return;
+  }}
+
+  event.respondWith((async () => {{
+    const cache = await caches.open(SHELL_CACHE);
+    const cached = await cache.match(request, {{ ignoreSearch: true }});
+    if (cached) return cached;
+    try {{
+      const response = await fetch(request);
+      if (response && response.ok) cache.put(request, response.clone());
+      return response;
+    }} catch (err) {{
+      return Response.error();
+    }}
+  }})());
+}});
 """
 
+
 BANNER = """
-<div class="static-strip" id="static-strip" role="note">
-  <span><strong>Static snapshot.</strong> The engines ran at build time; recorded answers are served from
-  <code>data/</code> and the graph queries are computed in your browser. The live server adds Neo4j,
-  the LLM and the polyglot sidecars.</span>
-  <span class="static-actions">
-    <button class="btn small ghost" id="install-app" hidden>Install app</button>
-    <a class="btn small ghost" href="https://github.com/authorsauravkushwaha/AI-Research-Intelligence-Graph" target="_blank" rel="noreferrer">GitHub ↗</a>
-  </span>
+<div id="static-banner" class="banner static-banner" role="status">
+  <strong>Static snapshot.</strong>
+  This is the published build of NEXUS: the graph, papers, search and the DSL planner run live
+  in your browser, while gap scoring, opportunity reports and agent answers were computed by
+  the real engines at build time ({built}). It answers for the curated corpus only —
+  <a href="https://github.com/authorsauravkushwaha/AI-Research-Intelligence-Graph#readme"
+     target="_blank" rel="noreferrer">run it locally</a> for live queries.
+  <button type="button" id="static-banner-close" aria-label="Dismiss">×</button>
 </div>
 """
 
 
-def patch_index(html: str, *, version: str, topics: list[str], questions: list[str]) -> str:
-    """Make the shipped index.html work from a sub-path, as a PWA, with static data."""
-    head_before = '<link rel="stylesheet" href="/assets/style.css" />'
-    assert head_before in html
-    head_after = (
-        '<link rel="stylesheet" href="assets/style.css" />\n'
-        '<link rel="manifest" href="manifest.webmanifest" />\n'
-        '<meta name="theme-color" content="#070b16" />\n'
-        '<meta name="color-scheme" content="dark" />\n'
-        '<meta name="apple-mobile-web-app-capable" content="yes" />\n'
-        '<meta name="apple-mobile-web-app-title" content="NEXUS" />\n'
-        '<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />\n'
-        '<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png" />'
-    )
-    html = html.replace(head_before, head_after)
+def patch_index(html: str, *, version: str, built: str, topics: list[str], questions: list[str]) -> str:
+    """Rewrite the served index.html for a static, sub-path-safe deployment."""
+    # GitHub Pages serves the project under /<repo>/ — every path must be relative.
+    html = html.replace('href="/assets/', 'href="assets/')
+    html = html.replace('src="/assets/', 'src="assets/')
+    html = html.replace('href="/vendor/', 'href="vendor/')
+    html = html.replace('src="/vendor/', 'src="vendor/')
+    html = html.replace('href="/icons/', 'href="icons/')
+    html = html.replace('src="/icons/', 'src="icons/')
+    html = html.replace('href="/manifest.webmanifest"', 'href="manifest.webmanifest"')
+    html = html.replace('href="/api/health"', 'href="data/health.json"')
+    html = html.replace('href="/docs"', 'href="https://github.com/authorsauravkushwaha/AI-Research-Intelligence-Graph#api"')
 
-    # the 3D view imports three.js by absolute path: make it relative for sub-path hosting
-    html = html.replace('from "/vendor/', 'from "./vendor/').replace('"/assets/', '"assets/')
-    html = html.replace("<body>", "<body>\n" + BANNER, 1)
+    # app.js imports "/vendor/three.module.js" (absolute) — make the module graph relative too
+    html = html.replace('<script type="module" src="assets/app.js"></script>',
+                        '<script type="module" src="assets/app.js"></script>')
 
-    bootstrap = (
-        "<script>window.NEXUS_MODE = \"static\"; "
-        f"window.NEXUS_BUILD = {{version: \"{version}\", topics: {json.dumps(topics)}, "
-        f"questions: {json.dumps(questions)}}};</script>\n"
-        '<script defer src="assets/site.js"></script>'
+    head_extra = (
+        '  <link rel="manifest" href="manifest.webmanifest" />\n'
+        '  <meta name="theme-color" content="#070b16" />\n'
+        '  <meta name="color-scheme" content="dark" />\n'
+        '  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />\n'
+        '  <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png" />\n'
+        '  <meta property="og:title" content="NEXUS — AI Research Intelligence Graph" />\n'
+        '  <meta property="og:description" content="A graph-native research intelligence prototype: '
+        'knowledge graph, graph algorithms, GraphRAG, a transparent research gap finder and an '
+        'explainable research agent." />\n'
+        '  <meta property="og:type" content="website" />\n'
     )
-    # app.js is an ES module; site.js installs the static data layer before it runs
-    html = html.replace("</body>", bootstrap + "\n</body>")
+    html = html.replace("</title>\n", "</title>\n" + head_extra, 1)
+
+    # the snapshot descriptor the header/status and the JS data layer read
+    boot = (
+        '  <script id="nexus-snapshot" type="application/json">'
+        + json.dumps({"mode": "static", "version": version, "built": built,
+                      "topics": topics, "questions": questions,
+                      "note": "Recorded from the live application at build time; the graph, "
+                              "papers, search and planner are recomputed in the browser."})
+        + "</script>\n"
+    )
+    html = html.replace('<script type="module" src="assets/app.js"></script>',
+                        boot + '<script src="assets/site.js"></script>\n'
+                               '<script type="module" src="assets/app.js"></script>', 1)
+
+    # an install affordance + the honest banner
+    html = html.replace('  <div class="status" id="status" title="Engine status">',
+                        '  <button type="button" id="install-app" class="install" hidden>Install app</button>\n'
+                        '  <div class="status" id="status" title="Engine status">', 1)
+    html = html.replace('<main>', BANNER + '\n<main>', 1)
+    html = html.replace("${VERSION}", version).replace("{built}", built)
     return html
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--out", type=Path, default=ROOT / "site", help="output directory (default: ./site)")
-    parser.add_argument("--topics", type=int, default=10, help="how many topics to precompute scopes for")
+# -------------------------------------------------------------------------- build
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build the static NEXUS website + app")
+    parser.add_argument("--out", default=str(ROOT / "site"), help="output directory (default: ./site)")
+    parser.add_argument("--keep", action="store_true", help="do not delete the output directory first")
     parser.add_argument("--quiet", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    out: Path = args.out.resolve()
-    if out.exists():
+    out = Path(args.out).resolve()
+    started = datetime.now(timezone.utc)
+
+    # The builder issues ~800 calls into the app in a couple of minutes (one per node, plus
+    # the recordings). That is one client, not a load test, so the per-IP limiter is off for
+    # the build only — the served site never runs behind FastAPI at all.
+    os.environ.setdefault("NEXUS_RATE_LIMIT_PER_MINUTE", "0")
+
+    from fastapi.testclient import TestClient  # imported late: --help must not need deps
+
+    from backend.api.app import create_app
+
+    if out.exists() and not args.keep:
         shutil.rmtree(out)
-    out.mkdir(parents=True)
+    out.mkdir(parents=True, exist_ok=True)
 
-    def log(message: str) -> None:
-        if not args.quiet:
-            print(message)
+    client = TestClient(create_app())
 
-    started = time.time()
-    log(f"NEXUS static build → {out}")
+    def api_get(path: str, **params: Any) -> Any:
+        response = client.get(path, params=params)
+        response.raise_for_status()
+        return response.json()
 
-    # 1 · the front end, copied verbatim (assets + vendored three.js)
-    for name in ("assets", "vendor"):
-        shutil.copytree(ROOT / "frontend" / name, out / name)
-    (out / "assets" / "app.js").write_text(
-        (ROOT / "frontend" / "assets" / "app.js").read_text(encoding="utf-8"), encoding="utf-8"
-    )
-    log(f"  · front end copied ({sum(1 for _ in out.rglob('*'))} files)")
+    def api_post(path: str, body: dict[str, Any]) -> Any:
+        response = client.post(path, json=body)
+        response.raise_for_status()
+        return response.json()
 
-    # 2 · record every API payload the UI can consume
-    rec = Recorder(out)
-    rec.get("/api/health", "health")
-    rec.get("/api/dashboard", "dashboard")
-    rec.get("/api/services", "services")
-    for path, key in (
-        ("/api/algorithms", "algorithms"),
-        ("/api/safety", "safety"),
-        ("/api/tools", "tools"),
-        ("/api/mcp", "mcp"),
-        ("/api/opportunity-score", "opportunity-score"),
-        ("/api/communities", "communities"),
-        ("/api/conflicts", "conflicts"),
-        ("/api/predictions", "predictions"),
-        ("/api/centrality", "centrality"),
-    ):
-        rec.get(path, key)
-    log("  · meta + dashboard recorded")
+    def api_text(path: str, body: dict[str, Any] | None = None, **params: Any) -> str:
+        response = client.post(path, json=body) if body is not None else client.get(path, params=params)
+        response.raise_for_status()
+        return response.text
 
-    # The exported graph the browser computes over. It comes from the same store the API
-    # serves, through the same accessors, so the metrics are the engine's own numbers.
-    from backend.graph.factory import get_state
+    # ---------------------------------------------------------------- the front end
+    shutil.copytree(FRONTEND / "assets", out / "assets")
+    shutil.copytree(FRONTEND / "vendor", out / "vendor")
+    (out / "data").mkdir(parents=True, exist_ok=True)
+    rec = Recorder(out / "data")
 
-    store = get_state().store
-    legend = rec.get("/api/graph", None)["legend"]
-    write_text(out / "data" / "export-cypher.txt", rec.raw("/api/export/cypher?limit=300"))
-    dataset = export_graph_dataset(legend, store=store)
-    write_json(out / "data" / "graph.json", dataset)
-    papers = sorted(
-        (node for node in dataset["nodes"] if node["type"] == "Paper"),
-        key=lambda node: -node["pagerank"],
-    )
-    log("  · graph exported for the browser (nodes with metrics + full properties, edges, communities)")
-
-    # curated scopes: timeline + explorer + gaps + report per topic, plus the default
-    topics = topic_names(store, args.topics)
-    for topic in ["", *topics]:
-        key = slug(topic)
-        rec.get("/api/timeline", f"timeline--{key}", **({"topic": topic} if topic else {}))
-        rec.get("/api/explorer", f"explorer--{key}", **({"topic": topic} if topic else {}))
-        gaps = rec.post("/api/gaps", {"topic": topic or None, "top_k": 5}, f"gaps--{key}")
-        for index in range(len(gaps.get("opportunities", []))):
-            rec.post(f"/api/gaps/{index}/evidence", {"topic": topic or None, "top_k": 5},
-                     f"gaps-evidence--{key}--{index}")
-        record_scope(rec, store, topic, key)
-        rec.recorded.append({"path": f"gap-engine.scope({topic!r})", "key": f"scope--{key}.json",
-                             "bytes": 0, "kind": "computed"})
-        markdown = rec.raw("/api/report/markdown", {"topic": topic or None, "top_k": 5})
-        write_text(out / "data" / f"report--{key}.md", markdown)
-        rec.post("/api/report", {"topic": topic or None, "top_k": 5}, f"report--{key}")
-    log(f"  · {len(topics) + 1} scopes precomputed (timeline, explorer, gaps, evidence, report)")
-
-    # agent answers, plus the recorded SSE stage trace for each
-    for question in list(AGENT_QUESTIONS) + [""]:
-        if not question:
-            continue
-        key = slug(question)
-        rec.post("/api/agent", {"question": question, "depth": 2, "top_k": 12}, f"agent--{key}")
-        stream = rec.raw("/api/agent/stream", {"question": question, "depth": 2, "top_k": 12})
-        write_text(out / "data" / f"agent-stream--{key}.txt", stream)
-    log(f"  · {len(AGENT_QUESTIONS)} agent questions recorded (answer + stage trace)")
-
-    # The comparisons the checker re-runs against a live engine (kept out of the site:
-    # the browser must not ship payloads it never reads).
-    references = {
-        "graph": [
-            {"payload": {"focus": None, "seeds": None, "depth": 1}},
-            {"payload": {"seeds": ["paper:2210.03629"], "depth": 1}},
-            {"payload": {"focus": "community:0"}},
-        ],
-        "paths": [
-            {"source": src, "target": dst} for src, dst in REFERENCE_PAIRS
-        ],
-        "papers": [row["id"] for row in papers[:8]],
-        "nodes": ["paper:2210.03629", "topic:agent-memory", "method:chain-of-thought", "community:c14"],
-        "neighbours": ["paper:2210.03629", "topic:agent-memory", "topic:tool-use"],
-        "node_lists": [{"label": label, "limit": 25, "sort": "degree"} for label in ("Paper", "Topic", "Method")],
-        "search": [{"q": q} for q in ("agent memory", "tool use", "evaluation")],
-        "paper_lists": [
-            {"q": q, "sort": sort, "limit": 25}
-            for q, sort in (("", "pagerank"), ("memory", "betweenness"), ("agent", "degree"), ("", "year"))
-        ],
-        "explorer": [{"topic": t} for t in [None, "AI Agents", "Agent Memory", "Tool Use"]],
-        "timeline": [{"topic": t} for t in [None, "AI Agents", "Tool Use"]],
+    # --------------------------------------------------------------- graph snapshot
+    # The browser needs properties (title, abstract, claim text, year, url) *and* metrics for
+    # every node, so each node's own detail response is folded into one dataset. Every field
+    # comes from the API: identities and edges from the export, properties and metrics from
+    # /api/nodes/<id>, the community profiles from /api/communities.
+    export = api_post("/api/export", {"format": "json", "limit": 5000})
+    communities_payload = api_get("/api/communities")
+    # The default graph view is recorded here rather than later: its `legend` is the API's own
+    # (node colours, the full relationship list, the associative/predicted relationships), and
+    # the browser needs exactly those values to colour and filter the graph.
+    graph_default = api_post("/api/graph", {})
+    graph = {
+        "format": "nexus-static-graph",
+        "engine": "memory-store@build",
+        "counts": export.get("counts", {}),
+        "provenance": export.get("provenance", {}),
+        "communities": communities_payload.get("communities", []),
+        "legend": graph_default["legend"],
+        "nodes": [],
+        "edges": export.get("edges", []),
     }
+    empty_props = 0
+    for index, node in enumerate(export.get("nodes", []), start=1):
+        detail = api_get("/api/nodes/" + node["id"])
+        metrics = detail.get("metrics", {})
+        props = detail.get("properties", {})
+        if not props:
+            empty_props += 1
+        graph["nodes"].append({
+            "id": detail["id"],
+            "label": detail["label"],
+            "type": detail["type"],
+            "color": node.get("color") or graph_default["legend"]["node_colors"].get(detail["type"]),
+            "props": props,
+            "pagerank": metrics.get("pagerank", 0.0),
+            "betweenness": metrics.get("betweenness", 0.0),
+            "degree": metrics.get("degree", 0),
+            "community": metrics.get("community", -1),
+        })
+        if index % 150 == 0:
+            log(f"    … {index} nodes folded in")
+    rec.json("graph.json", graph, "graph",
+             "POST /api/export + GET /api/nodes/<id> for every node (properties + metrics)")
 
-    html_source = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    shutil.copy2(ROOT / "frontend" / "assets" / "site.js", out / "assets" / "site.js")
-    version = hashlib.sha256(
-        (json.dumps(rec.recorded, sort_keys=True) + html_source).encode("utf-8")
-    ).hexdigest()[:12]
+    papers: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        page = api_get("/api/papers", limit=200, offset=offset, sort="pagerank")
+        papers.extend(page.get("items", []))
+        offset += 200
+        if offset >= page.get("total", 0) or not page.get("items"):
+            break
+    rec.json("papers.json", {"count": len(papers), "items": papers}, "corpus",
+             "GET /api/papers (all pages, sorted by pagerank)")
 
-    # 3 · PWA: icons, manifest, service worker
-    if not (ROOT / "frontend" / "assets" / "site.js").exists():
-        raise SystemExit("frontend/assets/site.js is missing — the static layer is required")
+    # ------------------------------------------------------------ recorded payloads
+    for name, path in [
+        ("health.json", "/api/health"),
+        ("dashboard.json", "/api/dashboard"),
+        ("services.json", "/api/services"),
+        ("algorithms.json", "/api/algorithms"),
+        ("safety.json", "/api/safety"),
+        ("tools.json", "/api/tools"),
+        ("mcp.json", "/api/mcp"),
+        ("opportunity-score.json", "/api/opportunity-score"),
+        ("conflicts.json", "/api/conflicts"),
+        ("predictions.json", "/api/predictions"),
+        ("centrality.json", "/api/centrality"),
+    ]:
+        rec.json(name, api_get(path), "recorded", f"GET {path}")
+
+    rec.json("communities.json", communities_payload, "recorded", "GET /api/communities")
+    rec.json("timeline.json", api_get("/api/timeline"), "recorded", "GET /api/timeline")
+    rec.json("explorer--default.json", api_get("/api/explorer"), "recorded", "GET /api/explorer")
+    rec.json("graph--default.json", graph_default, "reference", "POST /api/graph {}")
+
+    for topic in DEMO_TOPICS:
+        key = slug(topic)
+        rec.json(f"timeline--{key}.json", api_get("/api/timeline", topic=topic), "recorded",
+                 f"GET /api/timeline?topic={topic}")
+        rec.json(f"explorer--{key}.json", api_get("/api/explorer", topic=topic), "recorded",
+                 f"GET /api/explorer?topic={topic}")
+        gaps = api_post("/api/gaps", {"topic": topic, "top_k": 5})
+        rec.json(f"gaps--{key}.json", gaps, "recorded", f"POST /api/gaps {{topic:{topic}, top_k:5}}")
+        report = api_post("/api/report", {"topic": topic})
+        rec.json(f"report--{key}.json", report, "recorded", f"POST /api/report {{topic:{topic}}}")
+        rec.text(f"report--{key}.md", api_text("/api/report/markdown", {"topic": topic}),
+                 "recorded", f"POST /api/report/markdown {{topic:{topic}}}")
+
+    rec.json("gaps--default.json", api_post("/api/gaps", {"topic": None, "top_k": 5}),
+             "recorded", "POST /api/gaps {topic:null, top_k:5}")
+    rec.json("report--default.json", api_post("/api/report", {"topic": None}),
+             "recorded", "POST /api/report {topic:null}")
+    rec.text("report--default.md", api_text("/api/report/markdown", {"topic": None}),
+             "recorded", "POST /api/report/markdown {topic:null}")
+
+    for question in DEMO_QUESTIONS:
+        key = slug(question)
+        rec.json(f"agent--{key}.json", api_post("/api/agent", {"question": question}),
+                 "recorded", f"POST /api/agent {{question:{question!r}}}")
+        rec.text(f"agent-stream--{key}.txt",
+                 api_text("/api/agent/stream", {"question": question}),
+                 "recorded", "POST /api/agent/stream (SSE trace)")
+
+    for query in PLAN_QUERIES:
+        rec.json(f"plan--{slug(query)}.json", api_post("/api/plan", {"query": query}),
+                 "reference", f"POST /api/plan {{query:{query!r}}}")
+
+    rec.text("export-cypher.txt", api_text("/api/export/cypher", limit=300),
+             "recorded", "GET /api/export/cypher?limit=300")
+
+    # A few individual references (also what the node checker replays).
+    for paper_id in REFERENCE_PAPERS:
+        if paper_id in {n["id"] for n in graph["nodes"]}:
+            rec.json(f"paper--{slug(paper_id)}.json", api_get(f"/api/papers/{paper_id}"),
+                     "reference", f"GET /api/papers/{paper_id}")
+    for node_id in REFERENCE_NODES:
+        if node_id in {n["id"] for n in graph["nodes"]}:
+            rec.json(f"node--{slug(node_id)}.json", api_get(f"/api/nodes/{node_id}"),
+                     "reference", f"GET /api/nodes/{node_id}")
+    for query in REFERENCE_SEARCHES:
+        rec.json(f"search--{slug(query)}.json", api_get("/api/search", q=query),
+                 "reference", f"GET /api/search?q={query}")
+
+    # ------------------------------------------------------------------ PWA shell
     icons = build_icons(out / "icons")
+    (out / "manifest.webmanifest").write_text(json.dumps(MANIFEST, indent=2) + "\n")
+    (out / ".nojekyll").write_text("")
+
+    # --------------------------------------------------------------------- index
+    built = started.strftime("%Y-%m-%d %H:%M UTC")
+    version = started.strftime("%Y%m%d%H%M%S")
+    html = patch_index((FRONTEND / "index.html").read_text(), version=version, built=built,
+                       topics=DEMO_TOPICS, questions=DEMO_QUESTIONS)
+    (out / "index.html").write_text(html)
+
     shell = [
-        "./", "index.html", "assets/style.css", "assets/app.js", "assets/site.js",
-        "vendor/three.module.js", "vendor/OrbitControls.js", "manifest.webmanifest",
-        "icons/icon-192.png", "icons/icon-512.png", "icons/favicon-64.png",
+        "./", "./index.html", "./manifest.webmanifest", "./assets/style.css", "./assets/app.js",
+        "./assets/site.js", "./vendor/three.module.js", "./vendor/OrbitControls.js",
+        "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png",
     ]
-    write_json(out / "manifest.webmanifest", MANIFEST)
-    write_text(out / "sw.js", SERVICE_WORKER % {"version": version, "shell": json.dumps(shell, indent=2)})
-    write_text(out / ".nojekyll", "")
-    log(f"  · PWA shell: {len(shell)} precached files · icons {sum(icons.values()) // 1024} KB · version {version}")
+    (out / "sw.js").write_text(SERVICE_WORKER.format(version=version, shell=json.dumps(shell, indent=2)))
 
-    # 4 · the page itself, patched for sub-path hosting and static mode
-    write_text(out / "index.html", patch_index(
-        html_source, version=version, topics=topics, questions=list(AGENT_QUESTIONS),
-    ))
-
-    # 5 · a build manifest so the site (and the tests) can state exactly what is inside
-    health = rec.client.get("/api/health").json()
-    counts = health["counts"]
-    corpus_meta = rec.client.get("/api/dashboard").json().get("provenance", {}) or {}
+    # ------------------------------------------------------------------ manifest
+    counts = graph.get("counts", {})
     index = {
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "site": "NEXUS — static snapshot",
+        "mode": "static",
         "version": version,
-        "build_seconds": round(time.time() - started, 1),
-        "corpus_version": corpus_meta.get("corpus_version"),
+        "built": built,
+        "build_seconds": round((datetime.now(timezone.utc) - started).total_seconds(), 1),
+        "corpus_version": graph.get("corpus_version") or graph.get("version"),
         "counts": counts,
-        "provenance": corpus_meta,
-        "engines": {
-            "analytics": "native/nexus-kernel (C++17)",
-            "store": "in-process MemoryGraphStore at build time",
-            "recorded_by": "scripts/build_site.py via FastAPI TestClient",
-        },
+        "engines": api_get("/api/health").get("capabilities", {}),
         "precomputed": {
-            "topics": topics,
-            "questions": list(AGENT_QUESTIONS),
-            "records": sorted({r["key"] for r in rec.recorded if r.get("key")}),
+            "topics": DEMO_TOPICS,
+            "questions": DEMO_QUESTIONS,
+            "plan_queries": PLAN_QUERIES,
+            "note": "Scopes outside this list return a documented empty state naming the "
+                    "command that answers them live — the snapshot never invents a score.",
         },
         "computed_in_browser": [
-            "graph queries (seeds, focus, depth, node/rel/type filters, expand, neighbours)",
-            "shortest evidence path (BFS over the exported edges)",
-            "paper list filters, sorting and paging; paper and node detail",
-            "search over papers, topics, methods, datasets, authors and claims",
-            "timeline counts per topic",
-            "the NEXUS query DSL → parameterised Cypher (same rules as the Kotlin planner)",
-            "agent answers for intents the recorded set does not cover (graph templates)",
+            "/api/graph", "/api/graph/expand", "/api/graph/neighbours", "/api/graph/path",
+            "/api/nodes", "/api/papers", "/api/search", "/api/timeline", "/api/explorer",
+            "/api/plan",
         ],
-        "static_note": (
-            "This is a build-time snapshot of the NEXUS engines, published as a static site. "
-            "Recorded payloads are the engines' own output; anything marked computed is derived "
-            "from the exported graph in the browser. Gap scoring, community detection and "
-            "prediction are not re-run here — run the app locally (or with docker compose) for "
-            "live queries, and check /api/health there."
-        ),
-        "references": references,
-        "records": rec.recorded,
-        "bytes_written": rec.bytes,
+        "icons": icons,
+        "graph": {"nodes": len(graph["nodes"]), "edges": len(graph["edges"]),
+                  "nodes_without_properties": empty_props},
+        "files": rec.files,
     }
-    write_json(out / "data" / "index.json", index)
+    (out / "data" / "index.json").write_text(json.dumps(index, indent=1, ensure_ascii=False) + "\n")
 
-    total = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
-    log(
-        f"  · done in {index['build_seconds']}s · {total / 1024 / 1024:.1f} MB on disk "
-        f"({len(rec.recorded)} recorded payloads)"
-    )
+    total = sum(path.stat().st_size for path in out.rglob("*") if path.is_file())
     if not args.quiet:
-        print("\n  serve it locally with:")
-        print(f"    python -m http.server 8080 --directory {out.relative_to(ROOT) if out.is_relative_to(ROOT) else out}")
+        log(f"  · wrote {out}")
+        log(f"  · {total / 1e6:.1f} MB · {len(list(out.rglob('*')))} entries")
+        log(f"  · graph: {counts.get('nodes')} nodes / {counts.get('edges')} edges · "
+            f"{len(papers)} papers · {len(rec.files)} recorded payloads")
+        log(f"  · build version {version} · {index['build_seconds']}s")
+        log("")
+        log("  serve it locally with:  python -m http.server 8080 --directory site")
     return 0
 
 

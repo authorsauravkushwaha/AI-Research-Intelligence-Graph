@@ -1,712 +1,748 @@
-/* NEXUS static data layer — makes the front end work with no backend at all.
- * ============================================================================
- * The published site (GitHub Pages) has no server, so this file intercepts
- * `/api/*` and answers from three sources, in this order:
+/* NEXUS — static snapshot data layer.
  *
- *   1. recorded payloads  — `data/*.json`, captured from the real engines by
- *      `scripts/build_site.py` (gap scoring, GraphRAG answers, reports, meta);
- *   2. computation in the browser over the exported graph — graph views, expand,
- *      neighbours, shortest paths, paper/node detail, search, timeline, explorer;
- *   3. the DSL planner, reimplemented here from the same rules as the Kotlin
- *      planner / `backend/services/planner.py` and checked against
- *      `tests/data/planner_parity.json` by `scripts/check_site_data.mjs`.
+ * The published site (GitHub Pages) has no FastAPI behind it, so this file answers the
+ * `/api/*` calls the front end makes — from the recorded snapshot in ./data/ and, for the
+ * cheap views, by recomputing them in the browser over the shipped graph.
  *
- * Everything is honest about which of the three produced an answer: payloads carry
- * the engine name they had when recorded, plus `static_snapshot` metadata.
+ *     recorded at build time  (the expensive engines)
+ *         /api/gaps, /api/report, /api/report/markdown, /api/agent, /api/agent/stream,
+ *         /api/explorer (demo scopes), /api/timeline (demo scopes), /api/dashboard,
+ *         /api/health, /api/services, /api/communities, /api/conflicts, /api/predictions,
+ *         /api/centrality, /api/export/cypher, /api/algorithms, /api/safety, /api/tools
  *
- * Loaded as a classic script (before app.js, which is a module) in the static
- * build only, and as a plain require()-able module in Node for the checks.
+ *     recomputed here          (everything the UI can reach interactively)
+ *         /api/graph, /api/graph/expand, /api/graph/neighbours, /api/graph/path,
+ *         /api/nodes, /api/papers, /api/search, /api/timeline, /api/explorer, /api/plan
+ *
+ * Each recomputed handler is a port of the server code it replaces (the same filters, the
+ * same rounding, the same truncation rules), and `scripts/check_site_data.mjs` compares the
+ * two on the recorded scopes — so "the static site answers like the app" is a test result,
+ * not a claim. Anything the snapshot does not contain answers 501 with the command that
+ * would answer it live; it never invents a number.
  */
 (function (root) {
   "use strict";
 
-  const VERSION = "1.0.0";
-  const DATA_DIR = "data/";
-  const MAX_DEPTH = 3;
-  const SEED_LIMIT = 60;
+  var NODE_LABELS = ["Paper", "Author", "Topic", "Method", "Dataset", "Institution", "Claim", "Community"];
+  /* the planner's closed whitelist (backend/services/planner.py) */
+  var REL_TYPES = ["AUTHORED", "CITES", "STUDIES", "USES_METHOD", "USES_DATASET", "AFFILIATED_WITH",
+                   "MAKES_CLAIM", "SUPPORTS", "CONTRADICTS", "BELONGS_TO", "RELATED_TO"];
+  /* every relationship type the graph can hold (backend/models/graph.py) */
+  var GRAPH_REL_TYPES = REL_TYPES.concat(["MEASURED_BY", "SIMILAR_TO", "PREDICTED_LINK"]);
+  var DEFAULT_DEPTH = 1;
+  var DEFAULT_LIMIT = 50;
+  var FANOUT = 8.0;
+  var COST_BUDGET = 4000;
+  var SEED_LIMIT = 60;
 
-  const state = {
-    dataDir: DATA_DIR,
-    fetchImpl: typeof fetch === "function" ? fetch.bind(root) : null,
-    datasets: {},      // file name -> parsed JSON
-    graph: null,       // { nodes: Map, adj: Map, byLabel: Map, papers: [] }
-    index: null,       // data/index.json (build manifest)
-    missing: [],       // files that were not shipped
+  var state = {
+    dataDir: "data/",
+    snapshot: {},
+    datasets: Object.create(null),
+    pending: Object.create(null),
+    missing: [],
+    index: null,
+    graph: null,
+    fetcher: null,
+    delays: false,
   };
 
-  /* ------------------------------------------------------------- helpers -- */
-
-  const round = (value, digits) => {
-    const factor = 10 ** digits;
-    return Math.round((Number(value) || 0) * factor) / factor;
-  };
+  /* ------------------------------------------------------------------ utils */
 
   function slug(text) {
-    if (text === null || text === undefined || text === "") return "default";
-    const cleaned = String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-    return (cleaned || "default").slice(0, 64);
+    var cleaned = String(text === null || text === undefined ? "" : text)
+      .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return cleaned.slice(0, 60) || "default";
   }
 
-  function contentTokens(text) {
-    return String(text || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, " ")
-      .split(/[\s-]+/)
-      .filter((t) => t.length > 2 && !STOPWORDS.has(t));
+  function round(value, digits) {
+    if (value === null || value === undefined || value === "") return value;
+    var factor = Math.pow(10, digits === undefined ? 6 : digits);
+    return Math.round(Number(value) * factor) / factor;
   }
 
-  const STOPWORDS = new Set(("the a an and or of in on for to from with without is are was were be been " +
-    "does do did not no never this that these those it its as at by about into over under between " +
-    "which what where who how why when most important research papers paper study studies show shows " +
-    "corpus graph nexus me my i you your we our").split(" "));
-
-  function jaccard(a, b) {
-    const A = new Set(a), B = new Set(b);
-    if (!A.size || !B.size) return 0;
-    let shared = 0;
-    A.forEach((token) => { if (B.has(token)) shared += 1; });
-    return shared / (A.size + B.size - shared);
-  }
-
-  function httpError(status, detail) {
-    const error = new Error(detail);
+  function fail(status, detail) {
+    var error = new Error(detail);
     error.status = status;
     error.detail = detail;
     return error;
   }
 
-  /* -------------------------------------------------------- data loading -- */
+  function notPrecomputed(what, hint) {
+    return fail(501, "static snapshot: " + what + " is not part of the published build. " +
+      (hint || "Run NEXUS locally (python run.py, or docker compose up) for a live answer."));
+  }
 
-  async function loadJSON(name) {
-    if (Object.prototype.hasOwnProperty.call(state.datasets, name)) return state.datasets[name];
-    if (!state.fetchImpl) throw httpError(500, `no fetch available to load ${name}`);
-    const response = await state.fetchImpl(state.dataDir + name, { cache: "force-cache" });
-    if (!response.ok) {
-      state.missing.push(name);
-      throw httpError(404, `static snapshot: ${name} is not part of this build`);
+  function fetcher() {
+    if (state.fetcher) return state.fetcher;
+    if (root && typeof root.fetch === "function") return root.fetch.bind(root);
+    if (typeof fetch === "function") return fetch;
+    throw fail(500, "no fetch implementation available");
+  }
+
+  function dataPath(name) {
+    return state.dataDir + name;
+  }
+
+  function load(name) {
+    if (Object.prototype.hasOwnProperty.call(state.datasets, name)) {
+      return Promise.resolve(state.datasets[name]);
     }
-    const payload = await response.json();
-    state.datasets[name] = payload;
-    return payload;
+    if (state.pending[name]) return state.pending[name];
+    state.pending[name] = fetcher()(dataPath(name), { cache: "force-cache" })
+      .then(function (response) {
+        if (!response.ok) return null;
+        return response.json().then(function (payload) {
+          state.datasets[name] = payload;
+          return payload;
+        });
+      })
+      .catch(function () { return null; })
+      .then(function (payload) {
+        if (payload === null && state.missing.indexOf(name) === -1) state.missing.push(name);
+        delete state.pending[name];
+        return payload;
+      });
+    return state.pending[name];
   }
 
-  async function haveJSON(name) {
-    try {
-      return await loadJSON(name);
-    } catch (err) {
-      return null;
-    }
+  function loadText(name) {
+    return fetcher()(dataPath(name), { cache: "force-cache" })
+      .then(function (response) { return response.ok ? response.text() : null; })
+      .catch(function () { return null; });
   }
 
-  function configure(options) {
-    Object.assign(state, options || {});
-    if (options && options.graph) buildGraph(options.graph);
-    return state;
+  function require$_(name, payload) {
+    if (payload) return payload;
+    throw fail(500, "static snapshot is incomplete: data/" + name + " is missing");
   }
 
-  async function load() {
-    if (state.loaded) return state;
-    const [graph, index] = await Promise.all([loadJSON("graph.json"), haveJSON("index.json")]);
-    buildGraph(graph);
-    state.index = index;
-    state.loaded = true;
-    return state;
+  /* ------------------------------------------------------------- graph index */
+
+  /* node shape in data/graph.json: { id, label, type, color, props, pagerank,
+     betweenness, degree, community } — `label` is the human name, `type` the node label. */
+  /* The API flattens a node's / an edge's properties into the same object as its
+     structural fields (GNode.to_json / GEdge.to_json), so the snapshot keeps whatever the
+     engine said and this splits the two apart again. */
+  function structuralProps(raw, structural) {
+    var props = {};
+    Object.keys(raw).forEach(function (key) {
+      if (structural.indexOf(key) === -1) props[key] = raw[key];
+    });
+    return props;
   }
 
-  /* ------------------------------------------------- graph index + rules -- */
-
-  function buildGraph(dataset) {
-    const nodes = new Map();
-    const adj = new Map();
-    const byLabel = new Map();
-    (dataset.nodes || []).forEach((node) => {
-      const record = {
+  function buildGraph(snapshot) {
+    var nodes = new Map();
+    var byLabel = new Map();
+    var adjacency = new Map();
+    var edges = (snapshot.edges || []).map(function (edge) {
+      return {
+        id: edge.id || (edge.source + "|" + edge.type + "|" + edge.target),
+        src: edge.source, dst: edge.target, type: edge.type,
+        props: edge.properties || edge.props || structuralProps(edge, ["id", "source", "target", "type"]),
+      };
+    });
+    (snapshot.nodes || []).forEach(function (node) {
+      var record = {
         id: node.id,
-        label: node.label,
+        name: node.label,
         type: node.type,
         color: node.color,
-        props: node.props || node.properties || {},
+        props: node.props || structuralProps(node, ["id", "label", "name", "type", "color"]),
         pagerank: Number(node.pagerank || 0),
         betweenness: Number(node.betweenness || 0),
         degree: Number(node.degree || 0),
-        community: node.community === undefined || node.community === null ? -1 : Number(node.community),
+        community: node.community === undefined || node.community === null ? -1 : node.community,
       };
       nodes.set(record.id, record);
-      adj.set(record.id, []);
       if (!byLabel.has(record.type)) byLabel.set(record.type, []);
       byLabel.get(record.type).push(record);
     });
-    const edges = (dataset.edges || []).map((edge) => ({
-      id: edge.id, source: edge.source, target: edge.target, type: edge.type,
-      weight: edge.weight, provenance: edge.provenance,
-    }));
-    edges.forEach((edge) => {
-      const a = adj.get(edge.source), b = adj.get(edge.target);
-      if (a) a.push({ edge, other: edge.target, direction: "out" });
-      if (b) b.push({ edge, other: edge.source, direction: "in" });
+    edges.forEach(function (edge) {
+      if (!adjacency.has(edge.src)) adjacency.set(edge.src, []);
+      if (!adjacency.has(edge.dst)) adjacency.set(edge.dst, []);
+      adjacency.get(edge.src).push({ edge: edge, other: edge.dst, direction: "out" });
+      adjacency.get(edge.dst).push({ edge: edge, other: edge.src, direction: "in" });
     });
-    const communities = (dataset.communities || []).slice();
-    state.graph = { nodes, edges, adj, byLabel, communities, legend: dataset.legend, status: dataset.status };
+    state.graph = { nodes: nodes, edges: edges, adjacency: adjacency, byLabel: byLabel,
+                    legend: snapshot.legend || {}, communities: snapshot.communities || [] };
     return state.graph;
   }
 
-  function graphOrThrow() {
-    if (!state.graph) throw httpError(500, "static snapshot: graph.json has not been loaded yet");
+  function graph() {
+    if (!state.graph) throw fail(500, "static snapshot: the graph has not been loaded yet");
     return state.graph;
   }
 
-  const yearOf = (node) => {
-    const year = node.props && node.props.year;
-    return typeof year === "number" ? year : Number(year) || null;
-  };
+  function nodeLabelList(type) {
+    return (graph().byLabel.get(type) || []).slice();
+  }
 
-  function passesYearFilters(node, yearMin, yearMax) {
-    const year = yearOf(node);
-    if (yearMin !== null && yearMin !== undefined && (year || 0) < yearMin) return false;
-    if (yearMax !== null && yearMax !== undefined && (year || 9999) > yearMax) return false;
+  function metricsFor(node) {
+    return {
+      pagerank: round(node.pagerank, 6),
+      betweenness: round(node.betweenness, 6),
+      community: node.community,
+      degree: node.degree,
+    };
+  }
+
+  /* node.to_json(): identity, colour, then the (flattened) properties + metrics. */
+  function nodeJson(node) {
+    var out = { id: node.id, label: node.name, type: node.type, color: node.color || colourFor(node.type) };
+    var props = Object.assign({}, node.props);
+    props.pagerank = round(node.pagerank, 6);
+    props.betweenness = round(node.betweenness, 6);
+    props.community = node.community;
+    props.degree = node.degree;
+    Object.keys(props).forEach(function (key) {
+      if (props[key] === null || props[key] === undefined) delete props[key];
+    });
+    return Object.assign(out, props);
+  }
+
+  /* GNode.to_json(): identity, colour and properties — no metrics. The neighbours
+     endpoint returns the centre node this way. */
+  function nodeJsonPlain(node) {
+    var out = { id: node.id, label: node.name, type: node.type, color: node.color || colourFor(node.type) };
+    Object.keys(node.props).forEach(function (key) {
+      if (node.props[key] !== null && node.props[key] !== undefined) out[key] = node.props[key];
+    });
+    return out;
+  }
+
+  function colourFor(type) {
+    var colours = {
+      Paper: "#4cc9f0", Author: "#b892ff", Topic: "#f4a261", Method: "#2ec4b6",
+      Dataset: "#8ecae6", Institution: "#94a3b8", Claim: "#ff6b6b", Community: "#f9c74f",
+      Metric: "#a3e635",
+    };
+    return colours[type] || "#8899aa";
+  }
+
+  function neighboursOf(nodeId) {
+    var grouped = {};
+    (graph().adjacency.get(nodeId) || []).forEach(function (entry) {
+      var other = graph().nodes.get(entry.other);
+      if (!other) return;
+      if (!grouped[entry.edge.type]) grouped[entry.edge.type] = [];
+      grouped[entry.edge.type].push({
+        id: other.id, name: other.name, type: other.type, direction: entry.direction,
+        weight: entry.edge.props.weight === undefined ? null : entry.edge.props.weight,
+        predicted: Boolean(entry.edge.props.predicted),
+        properties: Object.assign({}, entry.edge.props),
+      });
+    });
+    return grouped;
+  }
+
+  /* ------------------------------------------------------------ graph views */
+
+  function passesFilters(node, request) {
+    var year = node.props ? node.props.year : null;
+    if (request.year_min !== null && request.year_min !== undefined && (year || 0) < request.year_min) return false;
+    if (request.year_max !== null && request.year_max !== undefined && (year || 9999) > request.year_max) return false;
+    if (request.min_degree && node.degree < request.min_degree) return false;
     return true;
   }
 
-  const nodeSummary = (node) => ({
-    id: node.id, label: node.label, type: node.type, color: node.color,
-    pagerank: round(node.pagerank, 6), betweenness: round(node.betweenness, 6),
-    community: node.community, degree: node.degree,
-  });
-
-  /* ------------------------------------------------------------- /graph -- */
-
-  function searchIndex(text, labels, limit) {
-    const needle = String(text || "").trim().toLowerCase();
-    const allowed = labels && labels.length ? new Set(labels) : null;
-    const results = [];
-    graphOrThrow().nodes.forEach((node) => {
-      if (allowed && !allowed.has(node.type)) return;
-      const props = node.props || {};
-      const haystack = `${node.label} ${props.text || ""} ${props.abstract || ""}`.toLowerCase();
-      if (needle && haystack.indexOf(needle) === -1) return;
-      let score = 0;
-      if (needle) {
-        const name = node.label.toLowerCase();
-        if (name === needle) score += 2;
-        if (name.startsWith(needle)) score += 1;
-        score += (haystack.split(needle).length - 1) * 0.2;   // occurrences, like the engine
-      }
-      score += node.pagerank * 5;
-      results.push({
-        id: node.id, label: node.label, type: node.type, score: round(score, 5),
-        year: props.year ?? null, field: props.field ?? null, url: props.url ?? null,
-        summary_source: props.summary_source ?? null,
-      });
-    });
-    results.sort((a, b) => b.score - a.score);
-    return limit ? results.slice(0, limit) : results;
-  }
-
-  function graphPayload(request) {
-    const graph = graphOrThrow();
-    const req = Object.assign({
-      seeds: null, query: null, depth: 1, node_types: null, rel_types: null,
+  function subgraph(request) {
+    var model = graph();
+    var req = Object.assign({
+      seeds: null, query: null, depth: DEFAULT_DEPTH, node_types: null, rel_types: null,
       year_min: null, year_max: null, include_predicted: true,
       max_nodes: 260, max_edges: 800, focus: null,
     }, request || {});
 
-    let seeds = (req.seeds || []).filter((id) => graph.nodes.has(id));
+    var seeds = (req.seeds || []).filter(function (id) { return model.nodes.has(id); });
     if (!seeds.length && req.query) {
-      seeds = searchIndex(req.query, req.node_types, SEED_LIMIT).map((hit) => hit.id);
+      seeds = search(req.query, req.node_types, SEED_LIMIT).map(function (hit) { return hit.id; });
     }
     if (!seeds.length) {
-      seeds = Array.from(graph.nodes.values())
-        .sort((a, b) => b.pagerank - a.pagerank)
-        .slice(0, SEED_LIMIT)
-        .map((node) => node.id);
+      // default view: the most influential nodes, never the whole graph
+      seeds = Array.from(model.nodes.values())
+        .sort(function (a, b) { return b.pagerank - a.pagerank; })
+        .slice(0, SEED_LIMIT).map(function (node) { return node.id; });
     }
 
-    const allowedTypes = req.node_types && req.node_types.length ? new Set(req.node_types) : null;
-    const allowedRels = req.rel_types && req.rel_types.length ? new Set(req.rel_types) : null;
-    const depth = Math.max(0, Math.min(Number(req.depth) || 0, MAX_DEPTH));
-    const maxNodes = Math.max(10, Math.min(Number(req.max_nodes) || 260, 400));
-    const maxEdges = Math.max(10, Math.min(Number(req.max_edges) || 800, 1200));
+    var allowedTypes = req.node_types ? new Set(req.node_types) : null;
+    var allowedRels = req.rel_types ? new Set(req.rel_types) : null;
+    var adjacency = new Map();
+    model.edges.forEach(function (edge) {
+      if (edge.type === "PREDICTED_LINK" && !req.include_predicted) return;
+      if (allowedRels && !allowedRels.has(edge.type)) return;
+      if (!adjacency.has(edge.src)) adjacency.set(edge.src, []);
+      if (!adjacency.has(edge.dst)) adjacency.set(edge.dst, []);
+      adjacency.get(edge.src).push(edge);
+      adjacency.get(edge.dst).push(edge);
+    });
 
-    const visited = new Set();
-    let frontier = Array.from(new Set(seeds));
-    let truncated = false;
-    for (let level = 0; level <= depth; level += 1) {
-      const next = [];
-      frontier.forEach((id) => {
-        if (visited.has(id)) return;
-        if (visited.size >= maxNodes) { truncated = true; return; }
-        const node = graph.nodes.get(id);
+    var visited = new Set();
+    var truncated = false;
+    var frontier = Array.from(new Set(seeds));
+    var maxDepth = Math.max(0, Math.min(req.depth, 3));
+    for (var level = 0; level <= maxDepth; level += 1) {
+      var next = [];
+      frontier.forEach(function (nodeId) {
+        if (visited.has(nodeId)) return;
+        if (visited.size >= req.max_nodes) { truncated = true; return; }
+        // the same rule the store applies: the cap is what truncates, an empty frontier is not
+        var node = model.nodes.get(nodeId);
         if (!node) return;
         if (allowedTypes && !allowedTypes.has(node.type)) return;
-        if (level > 0 && !passesYearFilters(node, req.year_min, req.year_max)) return;
-        visited.add(id);
-        (graph.adj.get(id) || []).forEach(({ edge, other }) => {
-          if (edge.type === "PREDICTED_LINK" && !req.include_predicted) return;
-          if (allowedRels && !allowedRels.has(edge.type)) return;
-          next.push(other);
+        if (level > 0 && !passesFilters(node, req)) return;
+        visited.add(nodeId);
+        (adjacency.get(nodeId) || []).forEach(function (edge) {
+          next.push(edge.src === nodeId ? edge.dst : edge.src);
         });
       });
       frontier = next;
       if (!frontier.length) break;
     }
 
-    const nodes = Array.from(visited).map((id) => nodeSummary(graph.nodes.get(id)));
-    const counts = {};
-    nodes.forEach((node) => { counts[node.type] = (counts[node.type] || 0) + 1; });
-
-    const edges = [];
-    graph.edges.forEach((edge) => {
-      if (edges.length >= maxEdges) { truncated = true; return; }
-      if (!visited.has(edge.source) || !visited.has(edge.target)) return;
-      if (edge.type === "PREDICTED_LINK" && !req.include_predicted) return;
-      if (allowedRels && !allowedRels.has(edge.type)) return;
-      edges.push(edge);
+    var nodes = [];
+    visited.forEach(function (nodeId) {
+      var node = model.nodes.get(nodeId);
+      if (node) nodes.push(nodeJson(node));
     });
+    var edges = [];
+    for (var e = 0; e < model.edges.length; e += 1) {
+      var edge = model.edges[e];
+      if (edges.length >= req.max_edges) { truncated = true; break; }
+      if (!visited.has(edge.src) || !visited.has(edge.dst)) continue;
+      if (edge.type === "PREDICTED_LINK" && !req.include_predicted) continue;
+      if (allowedRels && !allowedRels.has(edge.type)) continue;
+      edges.push(edgeJson(edge));
+    }
 
-    const notes = [];
+    var notes = [];
     if (truncated) {
-      notes.push(`View truncated to ${nodes.length} nodes / ${edges.length} edges ` +
+      notes.push("View truncated to " + nodes.length + " nodes / " + edges.length + " edges " +
         "(progressive expansion keeps the first paint fast — expand a node to see more).");
     }
+    var counts = {};
+    nodes.forEach(function (node) { counts[node.type] = (counts[node.type] || 0) + 1; });
 
-    let focus = null;
+    var payload = { nodes: nodes, edges: edges, truncated: truncated, notes: notes, counts: counts, focus: null };
     if (req.focus) {
-      let focusId = visited.has(req.focus) ? req.focus : null;
+      var focusId = visited.has(req.focus) ? req.focus : null;
       if (!focusId) {
-        const needle = String(req.focus).toLowerCase();
-        visited.forEach((id) => {
-          const node = graph.nodes.get(id);
-          if (!focusId && node && node.label.toLowerCase() === needle) focusId = id;
+        Array.from(visited).forEach(function (id) {
+          var node = model.nodes.get(id);
+          if (!focusId && node && node.name.toLowerCase() === String(req.focus).toLowerCase()) focusId = id;
         });
       }
-      if (focusId) focus = { id: focusId, neighbours: neighbours(focusId, 40).neighbours };
+      if (focusId) payload.focus = { id: focusId, neighbours: neighboursRaw(focusId) };
     }
-
-    return {
-      nodes, edges, truncated, notes, counts, focus,
-      legend: legend(graph),
-      status: staticStatus(),
-    };
+    return payload;
   }
 
-  function legend(graph) {
-    const legend = Object.assign({}, graph.legend || {});
-    if (!legend.node_colors) {
-      legend.node_colors = {};
-      graph.nodes.forEach((node) => { legend.node_colors[node.type] = node.color; });
-    }
-    return legend;
-  }
-
-  function staticStatus() {
-    return {
-      backend: "static-snapshot",
-      requested_backend: "static-snapshot",
-      degraded: false,
-      reason: "This page is a build-time snapshot: the graph is exported and queried in your browser. " +
-        "Run the app locally (or with docker compose) for the live engine, Neo4j and the polyglot sidecars.",
-    };
-  }
-
-  function expandPayload(nodeIds, relTypes, limit) {
-    const graph = graphOrThrow();
-    const ids = (nodeIds || []).filter((id) => graph.nodes.has(id));
-    const allowed = relTypes && relTypes.length ? new Set(relTypes) : null;
-    const visited = new Set(ids);
-    const edges = [];
-    const notes = [];
-    let truncated = false;
-    outer:
-    for (const id of ids) {
-      for (const { edge, other } of graph.adj.get(id) || []) {
-        if (edges.length >= (limit || 60)) { truncated = true; break outer; }
-        if (allowed && !allowed.has(edge.type)) continue;
-        if (visited.has(other)) { edges.push(edge); continue; }
-        visited.add(other);
-        edges.push(edge);
-      }
-    }
-    const nodes = Array.from(visited).map((id) => nodeSummary(graph.nodes.get(id)));
-    if (truncated) notes.push(`Expanded ${ids.length} node(s) by one hop (limit ${limit || 60}).`);
-    return { nodes, edges, truncated, notes, counts: countsByType(nodes), focus: null,
-             legend: legend(graph), status: staticStatus() };
-  }
-
-  function countsByType(nodes) {
-    const counts = {};
-    nodes.forEach((node) => { counts[node.type] = (counts[node.type] || 0) + 1; });
-    return counts;
-  }
-
-  function neighbours(nodeId, limit) {
-    const graph = graphOrThrow();
-    const center = graph.nodes.get(nodeId);
-    if (!center) throw httpError(404, `Node '${nodeId}' not found in this snapshot.`);
-    const grouped = {};
-    const all = [];
-    (graph.adj.get(nodeId) || []).forEach(({ edge, other, direction }) => {
-      const node = graph.nodes.get(other);
-      if (!node) return;
-      const entry = {
-        id: node.id, label: node.label, type: node.type, direction,
-        weight: edge.weight ?? null, rel: edge.type,
-        predicted: edge.type === "PREDICTED_LINK" || Boolean((edge.provenance || "").toLowerCase().includes("predict")),
-        pagerank: round(node.pagerank, 6), year: yearOf(node),
-      };
-      (grouped[edge.type] = grouped[edge.type] || []).push(entry);
-      all.push(entry);
+  function edgeJson(edge) {
+    var out = { id: edge.id, source: edge.src, target: edge.dst, type: edge.type };
+    Object.keys(edge.props).forEach(function (key) {
+      if (edge.props[key] !== null && edge.props[key] !== undefined) out[key] = edge.props[key];
     });
-    Object.keys(grouped).forEach((key) => grouped[key].sort((a, b) => b.pagerank - a.pagerank));
-    return {
-      center: Object.assign(nodeSummary(center), {
-        name: center.label,
-        title: (center.props && center.props.title) || center.label,
-        abstract: (center.props && center.props.abstract) || null,
-      }),
-      neighbours: limit ? all.slice(0, limit) : all,
-      grouped,
-      count: all.length,
-    };
+    return out;
   }
 
-  /* shortest path: BFS over the exported edges (the primitive the gap engine uses) */
-  function shortestPath(source, target, maxHops) {
-    const graph = graphOrThrow();
-    if (!graph.nodes.has(source)) throw httpError(404, `Node '${source}' not found in this snapshot.`);
-    if (!graph.nodes.has(target)) throw httpError(404, `Node '${target}' not found in this snapshot.`);
-    const limit = Math.max(1, Math.min(Number(maxHops) || 4, 6));
+  function neighboursRaw(nodeId) {
+    var out = [];
+    (graph().adjacency.get(nodeId) || []).forEach(function (entry) {
+      var other = graph().nodes.get(entry.other);
+      if (!other) return;
+      out.push({ id: other.id, label: other.name, type: other.type, rel: entry.edge.type,
+                 properties: entry.edge.props });
+    });
+    return out;
+  }
 
-    let frontier = [source];
-    const previous = new Map([[source, null]]);
-    for (let hop = 0; hop < limit && !previous.has(target); hop += 1) {
-      const next = [];
-      for (const id of frontier) {
-        for (const { edge, other } of graph.adj.get(id) || []) {
-          if (previous.has(other)) continue;
-          previous.set(other, { from: id, edge });
-          if (other === target) break;
-          next.push(other);
-        }
+  /* store.expand(): one hop out of the given nodes. An edge is only attached when it
+     brings a new node with it — that is what makes "expand" a view of the frontier rather
+     than a dump of the whole neighbourhood. */
+  function expand(nodeIds, relTypes, limit) {
+    var model = graph();
+    var allowed = relTypes && relTypes.length ? new Set(relTypes) : null;
+    var cap = limit || 60;
+    var visited = new Set();
+    var nodes = [];
+    (nodeIds || []).forEach(function (id) {
+      var node = model.nodes.get(id);
+      if (node) { visited.add(id); nodes.push(nodeJson(node)); }
+    });
+    var edges = [];
+    var added = 0;
+    var truncated = false;
+    for (var i = 0; i < model.edges.length; i += 1) {
+      if (added >= cap) { truncated = true; break; }
+      var edge = model.edges[i];
+      if (allowed && !allowed.has(edge.type)) continue;
+      if (visited.has(edge.src) && !visited.has(edge.dst)) {
+        var target = model.nodes.get(edge.dst);
+        if (target && !visited.has(edge.dst)) { visited.add(edge.dst); nodes.push(nodeJson(target)); added += 1; }
+        edges.push(edgeJson(edge));
+      } else if (visited.has(edge.dst) && !visited.has(edge.src)) {
+        var source = model.nodes.get(edge.src);
+        if (source && !visited.has(edge.src)) { visited.add(edge.src); nodes.push(nodeJson(source)); added += 1; }
+        edges.push(edgeJson(edge));
       }
+    }
+    var counts = {};
+    nodes.forEach(function (node) { counts[node.type] = (counts[node.type] || 0) + 1; });
+    return { nodes: nodes, edges: edges, truncated: truncated, notes: [], counts: counts };
+  }
+
+  function shortestPath(source, target, maxHops) {
+    var model = graph();
+    if (!model.nodes.has(source)) throw fail(404, "node " + source + " not found");
+    if (!model.nodes.has(target)) throw fail(404, "node " + target + " not found");
+    var limit = Math.max(1, Math.min(Number(maxHops) || 4, 6));
+
+    var previous = new Map([[source, null]]);
+    var frontier = [source];
+    for (var level = 0; level < limit && !previous.has(target); level += 1) {
+      var next = [];
+      frontier.forEach(function (id) {
+        (model.adjacency.get(id) || []).forEach(function (entry) {
+          if (previous.has(entry.other)) return;
+          previous.set(entry.other, { from: id, edge: entry.edge });
+          next.push(entry.other);
+        });
+      });
       frontier = next;
       if (!frontier.length) break;
     }
     if (!previous.has(target)) {
-      return { found: false, nodes: [], hops: [], hops_count: 0, node_labels: {},
-               note: `No path within ${limit} hops between '${source}' and '${target}'.` };
+      return { found: false, reason: "No path of " + limit + " hops or fewer between " + source + " and " + target, hops: [] };
     }
-    const chain = [];
-    for (let cursor = target; cursor !== null && cursor !== undefined;) {
+    var chain = [];
+    for (var cursor = target; cursor !== null && cursor !== undefined; cursor = previous.get(cursor) ? previous.get(cursor).from : null) {
       chain.push(cursor);
-      const step = previous.get(cursor);
-      cursor = step ? step.from : null;
     }
     chain.reverse();
-    const hops = [];
-    for (let i = 0; i < chain.length - 1; i += 1) {
-      const step = previous.get(chain[i + 1]);
-      const edge = step.edge;
-      const from = graph.nodes.get(edge.source) || graph.nodes.get(edge.target);
-      const to = chain[i + 1];
+    var hops = [];
+    for (var i = 0; i < chain.length - 1; i += 1) {
+      var step = previous.get(chain[i + 1]);
+      var to = chain[i + 1];
       hops.push({
-        from: step.from, to,
-        label: `${graph.nodes.get(step.from).label} —${edge.type}→ ${graph.nodes.get(to).label}`,
-        type: `${edge.type}`,
-        direction: edge.source === step.from ? "out" : "in",
-        from_label: from ? from.label : from,
+        from: chain[i], to: to, direction: step.edge.src === chain[i] ? "out" : "in",
+        label: model.nodes.get(chain[i]).name + " —" + step.edge.type + "→ " + model.nodes.get(to).name,
+        type: step.edge.type,
       });
     }
-    const node_labels = {};
-    chain.forEach((id) => { node_labels[id] = graph.nodes.get(id).label; });
-    return { found: true, nodes: chain, hops, hops_count: hops.length, node_labels };
+    var labels = {};
+    chain.forEach(function (id) { labels[id] = model.nodes.get(id).name; });
+    return { found: true, nodes: chain, hops: hops, hops_count: hops.length, node_labels: labels };
   }
 
-  /* ------------------------------------------------------------ /papers -- */
+  /* --------------------------------------------------------------- listings */
 
-  async function paperItems(source, query) {
-    const q = Object.assign({ q: null, topic: null, field: null, year_min: null, year_max: null,
-                              sort: "pagerank", order: "desc", limit: 40, offset: 0 }, query || {});
-    const graph = graphOrThrow();
-    let items = (graph.byLabel.get("Paper") || []).slice();
-    if (q.year_min !== null && q.year_min !== undefined) items = items.filter((n) => (yearOf(n) || 0) >= q.year_min);
-    if (q.year_max !== null && q.year_max !== undefined) items = items.filter((n) => (yearOf(n) || 9999) <= q.year_max);
-    if (q.field) items = items.filter((n) => (n.props.field || null) === q.field);
-
-    const key = {
-      pagerank: (n) => n.pagerank,
-      betweenness: (n) => n.betweenness,
-      degree: (n) => n.degree,
-      year: (n) => yearOf(n) || 0,
-      name: (n) => n.label.toLowerCase(),
-    }[q.sort] || ((n) => n.pagerank);
-    // python's `sorted(..., reverse=True)` and JS `Array#sort` are both stable, so equal
-    // metrics keep the store's node order in both engines — the pages line up exactly
-    items.sort((a, b) => (q.order === "asc" ? key(a) - key(b) : key(b) - key(a)));
-
-    const total = items.length;
-    let page = items.slice(q.offset, q.offset + q.limit);
-    const payload = { total, offset: q.offset, limit: q.limit, sort: q.sort };
-
-    // the engine pages first and filters the page afterwards — the static layer follows
-    // the same order so `total`/`items` are identical rather than merely similar
-    if (q.topic) {
-      const keep = new Set((await scopedPapers(q.topic)).papers);
-      page = page.filter((node) => keep.has(node.id));
-      payload.filtered_by_topic = q.topic;
-      payload.total = page.length;
-    }
-    if (q.q) {
-      const hits = new Set(searchIndex(q.q, ["Paper"], 500).map((hit) => hit.id));
-      page = page.filter((node) => hits.has(node.id));
-      payload.filtered_by_query = q.q;
-      payload.total = page.length;
-    }
-
-    payload.items = page.map((node) => ({
-      id: node.id, label: node.label, type: node.type, year: yearOf(node),
-      field: node.props.field ?? null, url: node.props.url ?? null,
-      pagerank: round(node.pagerank, 5), betweenness: round(node.betweenness, 5),
-      degree: node.degree, community: node.community,
-    }));
-    return payload;
+  function sortKey(sort) {
+    if (sort === "name") return function (n) { return n.name.toLowerCase(); };
+    if (sort === "betweenness") return function (n) { return n.betweenness; };
+    if (sort === "degree") return function (n) { return n.degree; };
+    if (sort === "year") return function (n) { return n.props.year || 0; };
+    return function (n) { return n.pagerank; };
   }
 
-  /* the plain-language metric explanations, same wording as the engine */
-  function explainMetrics(node, community) {
-    const out = [];
-    const pr = node.pagerank, bc = node.betweenness, degree = node.degree;
+  function listNodes(query) {
+    var q = Object.assign({ label: null, q: null, sort: "pagerank", order: "desc",
+                            year_min: null, year_max: null, field: null, limit: 50, offset: 0 }, query || {});
+    var items = q.label ? nodeLabelList(q.label) : Array.from(graph().nodes.values());
+    if (q.year_min !== null && q.year_min !== undefined) items = items.filter(function (n) { return (n.props.year || 0) >= q.year_min; });
+    if (q.year_max !== null && q.year_max !== undefined) items = items.filter(function (n) { return (n.props.year || 9999) <= q.year_max; });
+    if (q.field) items = items.filter(function (n) { return n.props.field === q.field; });
+
+    var key = sortKey(q.sort);
+    var reverse = q.order !== "asc";
+    items = items.slice().sort(function (a, b) {
+      var ka = key(a), kb = key(b);
+      if (ka === kb) return 0;
+      return (ka < kb ? -1 : 1) * (reverse ? -1 : 1);
+    });
+    /* list_nodes() has no text filter: year/field filters run first, the ranking decides the
+       page, and the caller filters the page afterwards (which is why `total` in a filtered
+       response describes the rows returned, not every match in the graph). */
+    var total = items.length;
+    var page = items.slice(Number(q.offset) || 0, (Number(q.offset) || 0) + (Number(q.limit) || 50));
+    return {
+      total: total, offset: Number(q.offset) || 0, limit: Number(q.limit) || 50,
+      items: page.map(function (node) {
+        return {
+          id: node.id, label: node.name, type: node.type,
+          year: node.props.year === undefined ? null : node.props.year,
+          field: node.props.field === undefined ? null : node.props.field,
+          url: node.props.url === undefined ? null : node.props.url,
+          pagerank: round(node.pagerank, 5), betweenness: round(node.betweenness, 5),
+          degree: node.degree, community: node.community,
+        };
+      }),
+    };
+  }
+
+  function countOccurrences(haystack, needle) {
+    if (!needle) return 0;
+    var count = 0;
+    var from = 0;
+    for (;;) {
+      var at = haystack.indexOf(needle, from);
+      if (at === -1) return count;
+      count += 1;
+      from = at + needle.length;
+    }
+  }
+
+  function search(text, labels, limit) {
+    var needle = String(text || "").trim().toLowerCase();
+    var allowed = labels && labels.length ? new Set(labels) : null;
+    var results = [];
+    graph().nodes.forEach(function (node) {
+      if (allowed && !allowed.has(node.type)) return;
+      var haystack = (node.name + " " + (node.props.text || "") + " " + (node.props.abstract || "")).toLowerCase();
+      if (needle && haystack.indexOf(needle) === -1) return;
+      var score = 0;
+      if (needle) {
+        if (node.name.toLowerCase() === needle) score += 2;
+        if (node.name.toLowerCase().indexOf(needle) === 0) score += 1;
+        score += countOccurrences(haystack, needle) * 0.2;
+      }
+      score += node.pagerank * 5;
+      results.push({
+        id: node.id, label: node.name, type: node.type, score: round(score, 5),
+        year: node.props.year === undefined ? null : node.props.year,
+        field: node.props.field === undefined ? null : node.props.field,
+        url: node.props.url === undefined ? null : node.props.url,
+        summary_source: node.props.summary_source === undefined ? null : node.props.summary_source,
+      });
+    });
+    results.sort(function (a, b) { return b.score - a.score; });
+    return limit ? results.slice(0, limit) : results;
+  }
+
+  /* ------------------------------------------------------------ node detail */
+
+  function communityProfile(index) {
+    return (graph().communities || []).find(function (entry) { return entry.community_index === index; }) || null;
+  }
+
+  function explainMetrics(node, metrics) {
+    var out = [];
+    var pr = metrics.pagerank || 0;
+    var bc = metrics.betweenness || 0;
     if (pr > 0) {
-      const strength = pr > 0.01 ? "top-tier" : pr > 0.004 ? "notable" : "modest";
+      var strength = pr > 0.01 ? "top-tier" : (pr > 0.004 ? "notable" : "modest");
       out.push({
         metric: "PageRank", value: pr.toFixed(5),
-        meaning: `PageRank measures influence by how much highly-connected research points at this node. ` +
-          `At ${pr.toFixed(5)} this is ${strength} influence within the analyzed corpus.`,
+        meaning: "PageRank measures influence by how much highly-connected research points at this node. " +
+                 "At " + pr.toFixed(5) + " this is " + strength + " influence within the analyzed corpus.",
       });
     }
     if (bc > 0) {
       out.push({
         metric: "Betweenness centrality", value: bc.toFixed(5),
-        meaning: `Betweenness counts how often this node sits on the shortest path between others. ` +
-          (bc > 0.01 ? "This node acts as a bridge between otherwise separated research areas."
-                     : "Its bridging role is limited: most paths do not need to pass through it."),
+        meaning: "Betweenness counts how often this node sits on the shortest path between others. " +
+          (bc > 0.01
+            ? "This node acts as a bridge between otherwise separated research areas."
+            : "Its bridging role is limited: most paths do not need to pass through it."),
       });
     }
     out.push({
-      metric: "Degree", value: String(degree),
-      meaning: `${degree} direct relationships were collected in the graph for this node.`,
+      metric: "Degree", value: String(metrics.degree),
+      meaning: metrics.degree + " direct relationships were collected in the graph for this node.",
     });
-    if (node.community >= 0) {
+    if (metrics.community !== undefined && metrics.community >= 0) {
+      var profile = communityProfile(metrics.community);
       out.push({
-        metric: "Research community", value: String(node.community),
-        meaning: `Louvain community detection places this node in community ${node.community}` +
-          (community ? ` — '${community.name}' (${community.paper_count} papers).` : "."),
+        metric: "Research community", value: String(metrics.community),
+        meaning: "Louvain community detection places this node in community " + metrics.community +
+          (profile ? " — '" + profile.name + "' (" + profile.paper_count + " papers)." : "."),
       });
     }
     return out;
   }
 
-  function communityProfile(index) {
-    const graph = graphOrThrow();
-    return (graph.communities || []).find((c) => c.community_index === index) || null;
-  }
-
   function nodeDetail(nodeId) {
-    const graph = graphOrThrow();
-    const node = graph.nodes.get(nodeId);
-    if (!node) throw httpError(404, `Node '${nodeId}' not found in this snapshot.`);
-    const grouped = {};
-    const counts = {};
-    (graph.adj.get(nodeId) || []).forEach(({ edge, other, direction }) => {
-      const other_node = graph.nodes.get(other);
-      if (!other_node) return;
-      (grouped[edge.type] = grouped[edge.type] || []).push({
-        id: other_node.id, name: other_node.label, type: other_node.type, direction,
-        weight: edge.weight ?? null, predicted: edge.type === "PREDICTED_LINK",
-        similarity: edge.weight ?? null, properties: edge.provenance ? { provenance: edge.provenance } : {},
-      });
-      counts[edge.type] = (counts[edge.type] || 0) + 1;
-    });
-    Object.keys(grouped).forEach((key) => {
-      // the engine keeps the store's edge order (no re-sorting) — `.slice(0, 40)`
-      // mirrors `store.node_detail`, so the static layer answers the same list
-      grouped[key] = grouped[key].slice(0, 40);
-    });
-    const metrics = {
-      pagerank: round(node.pagerank, 6), betweenness: round(node.betweenness, 6),
-      degree: node.degree, community: node.community,
-    };
-    const detail = {
-      id: node.id, label: node.label, type: node.type, properties: node.props,
-      metrics, metrics_explained: explainMetrics(node, communityProfile(node.community)),
-      neighbours: grouped, neighbour_counts: counts,
+    var model = graph();
+    var node = model.nodes.get(nodeId);
+    if (!node) throw fail(404, "node " + nodeId + " not found");
+    var grouped = neighboursOf(nodeId);
+    var counts = {};
+    Object.keys(grouped).forEach(function (rel) { counts[rel] = grouped[rel].length; });
+    var capped = {};
+    Object.keys(grouped).forEach(function (rel) { capped[rel] = grouped[rel].slice(0, 40); });
+    var metrics = metricsFor(node);
+
+    var detail = {
+      id: node.id, label: node.name, type: node.type,
+      properties: node.props, metrics: metrics,
+      metrics_explained: explainMetrics(node, metrics),
+      neighbours: capped, neighbour_counts: counts,
     };
     if (node.type === "Paper") {
-      const names = (rel) => (grouped[rel] || []).map((entry) => entry.name);
-      const citations = (grouped.CITES || []);
-      detail.authors = names("AUTHORED");
-      detail.topics = names("STUDIES");
-      detail.methods = names("USES_METHOD");
-      detail.datasets = names("USES_DATASET");
-      detail.citations_out = citations.filter((c) => c.direction === "out").map((c) => c.id);
-      detail.cited_by = citations.filter((c) => c.direction === "in").map((c) => c.id);
+      detail.authors = (grouped.AUTHORED || []).map(function (n) { return n.name; });
+      detail.topics = (grouped.STUDIES || []).map(function (n) { return n.name; });
+      detail.methods = (grouped.USES_METHOD || []).map(function (n) { return n.name; });
+      detail.datasets = (grouped.USES_DATASET || []).map(function (n) { return n.name; });
+      detail.citations_out = (grouped.CITES || []).filter(function (n) { return n.direction === "out"; }).map(function (n) { return n.id; });
+      detail.cited_by = (grouped.CITES || []).filter(function (n) { return n.direction === "in"; }).map(function (n) { return n.id; });
       detail.in_graph_citation_degree = detail.citations_out.length + detail.cited_by.length;
-      detail.similar_papers = (grouped.SIMILAR_TO || [])
-        .map((entry) => ({ id: entry.id, name: entry.name, similarity: entry.similarity }));
-      detail.claims = (grouped.MAKES_CLAIM || []).map((entry) => {
-        const claim = graph.nodes.get(entry.id);
-        return { id: entry.id, text: claim ? claim.props.text : null, stance: claim ? claim.props.stance : null };
+      detail.similar_papers = (grouped.SIMILAR_TO || []).map(function (n) {
+        return { id: n.id, name: n.name, similarity: n.properties.similarity === undefined ? null : n.properties.similarity };
       });
-      detail.predicted_links = (grouped.PREDICTED_LINK || []).map((entry) => ({
-        id: entry.id, name: entry.name, type: entry.type, score: entry.similarity,
-      }));
+      detail.claims = (grouped.MAKES_CLAIM || []).map(function (n) {
+        var claim = model.nodes.get(n.id);
+        return { id: n.id, text: claim ? claim.props.text : null, stance: claim ? claim.props.stance : null };
+      });
     }
     return detail;
   }
 
-  /* ------------------------------------------------------------ timeline -- */
-
-  async function scopedPapers(topic) {
-    /* The gap engine resolves a phrase like "AI Agents" into many topics with a scored
-       algorithm, so the resolution is shipped (data/scope--<slug>.json) instead of being
-       guessed here. Without a shipped scope the browser falls back to a token match and
-       says so in `resolution.strategy`. */
-    const graph = graphOrThrow();
-    if (!topic) {
-      return { papers: (graph.byLabel.get("Paper") || []).map((p) => p.id),
-               topics: (graph.byLabel.get("Topic") || []).map((t) => t.id),
-               methods: (graph.byLabel.get("Method") || []).map((m) => m.id),
-               resolution: { query: null, matched_topics: [], strategy: "all-papers" }, exact: true };
-    }
-    const shipped = await haveJSON(`scope--${slug(topic)}.json`);
-    if (shipped) {
-      const names = new Map();
-      (shipped.topics || []).forEach((id) => { const node = graph.nodes.get(id); if (node) names.set(id, node.label); });
-      return {
-        papers: shipped.papers, topics: shipped.topics, methods: shipped.methods,
-        resolution: Object.assign({}, shipped.resolution, { matched_topics: (shipped.resolution || {}).matched_topics
-          || Array.from(names.values()) }),
-        exact: true,
-      };
-    }
-    const needle = String(topic).toLowerCase();
-    const tokens = contentTokens(topic);
-    const score = (label) => {
-      const lower = label.toLowerCase();
-      if (lower === needle || lower.includes(needle)) return 3;
-      const hit = tokens.filter((token) => lower.includes(token)).length;
-      return hit ? hit / Math.max(tokens.length, 1) * 2 : 0;
-    };
-    const topics = (graph.byLabel.get("Topic") || [])
-      .map((node) => ({ node, value: score(node.label) }))
-      .filter((entry) => entry.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 8).map((entry) => entry.node);
-    const papers = new Set();
-    const methods = new Set();
-    topics.forEach((topicNode) => {
-      (graph.adj.get(topicNode.id) || []).forEach(({ edge, other }) => {
-        if ((edge.type === "STUDIES" || edge.type === "BELONGS_TO") && graph.nodes.get(other)
-            && graph.nodes.get(other).type === "Paper") papers.add(other);
-      });
+  function paperDetail(paperId) {
+    var model = graph();
+    var detail = nodeDetail(paperId);
+    if (detail.type !== "Paper") throw fail(404, "paper " + paperId + " not found");
+    detail.community = communityProfile(model.nodes.get(paperId).community);
+    var predicted = predictedLinks();
+    detail.predicted_links = predicted.filter(function (link) {
+      return paperId === link.source || paperId === link.target;
+    }).map(function (link) {
+      return Object.assign({}, link, { direction: link.source === paperId ? "out" : "in" });
     });
-    topics.forEach((topicNode) => {
-      papers.forEach((paperId) => {
-        (graph.adj.get(paperId) || []).forEach(({ edge, other }) => {
-          if (edge.type === "USES_METHOD") methods.add(other);
+    var all = conflicts();
+    detail.conflicts = all.filter(function (conflict) {
+      return paperId === conflict.paper_a || paperId === conflict.paper_b;
+    });
+    detail.provenance = {
+      record: "arXiv metadata (id, title, url) as listed in the public corpus index",
+      summary: detail.properties.summary_source || "unknown",
+      authors: detail.properties.author_status || "not-collected",
+    };
+    return detail;
+  }
+
+  function conflicts() {
+    var recorded = state.datasets["conflicts.json"];
+    return (recorded && recorded.conflicts) || [];
+  }
+
+  function predictedLinks() {
+    var recorded = state.datasets["predictions.json"];
+    return (recorded && recorded.predictions) || [];
+  }
+
+  /* --------------------------------------------------------------- explorer */
+
+  function recencyOf(years) {
+    var keys = Object.keys(years).map(Number).sort(function (a, b) { return a - b; });
+    var recent = keys.filter(function (year) { return year >= 2023; })
+      .reduce(function (total, year) { return total + years[year]; }, 0);
+    var total = keys.reduce(function (sum, year) { return sum + years[year]; }, 0);
+    return {
+      papers_since_2023: recent,
+      share_since_2023: total ? round(recent / total, 3) : 0,
+      newest_year: keys.length ? keys[keys.length - 1] : null,
+      oldest_year: keys.length ? keys[0] : null,
+    };
+  }
+
+  function topBy(metric, label, limit) {
+    return nodeLabelList(label).slice()
+      .sort(function (a, b) {
+        var va = metric === "degree" ? a.degree : (metric === "betweenness" ? a.betweenness : a.pagerank);
+        var vb = metric === "degree" ? b.degree : (metric === "betweenness" ? b.betweenness : b.pagerank);
+        return vb - va;
+      })
+      .slice(0, limit)
+      .map(function (node) {
+        return {
+          id: node.id, label: node.name, type: node.type,
+          value: round(metric === "degree" ? node.degree : (metric === "betweenness" ? node.betweenness : node.pagerank), 6),
+          degree: node.degree, year: node.props.year === undefined ? null : node.props.year,
+          community: node.community, url: node.props.url === undefined ? null : node.props.url,
+        };
+      });
+  }
+
+  /* browser-side scope resolution: topic phrases → matching topic nodes → their papers.
+     The build records the gap engine's own resolution for the demo scopes (data/
+     explorer--<scope>.json); this is the documented fallback for any other phrase. */
+  function browserScope(topic, yearMin, yearMax, field) {
+    var model = graph();
+    var matched = [];
+    if (topic) {
+      var needle = String(topic).toLowerCase();
+      nodeLabelList("Topic").forEach(function (node) {
+        var name = node.name.toLowerCase();
+        if (name === needle || name.indexOf(needle) !== -1 || needle.indexOf(name) !== -1) matched.push(node);
+      });
+    }
+    var paperIds = new Set();
+    var methodIds = new Set();
+    if (!topic) {
+      nodeLabelList("Paper").forEach(function (node) { paperIds.add(node.id); });
+      nodeLabelList("Method").forEach(function (node) { methodIds.add(node.id); });
+    } else {
+      matched.forEach(function (topicNode) {
+        (model.adjacency.get(topicNode.id) || []).forEach(function (entry) {
+          if (entry.edge.type !== "STUDIES" && entry.edge.type !== "BELONGS_TO") return;
+          var other = model.nodes.get(entry.other);
+          if (!other) return;
+          if (other.type === "Paper") paperIds.add(other.id);
+          if (other.type === "Method") methodIds.add(other.id);
         });
       });
+      Array.from(paperIds).forEach(function (paperId) {
+        (model.adjacency.get(paperId) || []).forEach(function (entry) {
+          if (entry.edge.type === "USES_METHOD" && model.nodes.get(entry.other)) methodIds.add(entry.other);
+        });
+      });
+    }
+    var papers = Array.from(paperIds).filter(function (id) {
+      var node = model.nodes.get(id);
+      if (!node) return false;
+      var year = node.props.year;
+      if (yearMin !== null && yearMin !== undefined && (year || 0) < yearMin) return false;
+      if (yearMax !== null && yearMax !== undefined && (year || 9999) > yearMax) return false;
+      if (field && node.props.field !== field) return false;
+      return true;
     });
     return {
-      papers: Array.from(papers), topics: topics.map((node) => node.id), methods: Array.from(methods),
-      resolution: {
-        query: topic, matched_topics: topics.map((node) => node.label),
-        strategy: "browser-token-match (no shipped scope for this phrase)",
-      },
-      exact: false,
+      papers: papers, topics: matched.map(function (node) { return node.id; }),
+      methods: Array.from(methodIds),
+      resolution: { query: topic, matched_topics: matched.map(function (node) { return node.name; }),
+                    strategy: topic ? "browser-topic-match" : "whole-corpus" },
     };
   }
 
-  async function timelinePayload(topic) {
-    const graph = graphOrThrow();
-    const scope = await scopedPapers(topic);
-    const scoped = new Set(scope.papers);
-    const years = {};
-    const perTopic = new Map();
-    graph.edges.forEach((edge) => {
-      if (edge.type !== "STUDIES") return;
-      const paper = graph.nodes.get(edge.source);
-      if (!paper || paper.type !== "Paper") return;
-      if (scoped.size && !scoped.has(paper.id)) return;
-      const year = yearOf(paper);
-      if (!year) return;
-      years[year] = (years[year] || 0) + 1;
-      const topicNode = graph.nodes.get(edge.target);
-      if (!topicNode) return;
-      const bucket = perTopic.get(topicNode.label) || new Map();
-      bucket.set(year, (bucket.get(year) || 0) + 1);
-      perTopic.set(topicNode.label, bucket);
-    });
-    const sortedYears = {};
-    Object.keys(years).map(Number).sort((a, b) => a - b).forEach((year) => { sortedYears[year] = years[year]; });
-    const topics_over_time = {};
-    Array.from(perTopic.entries())
-      .sort((a, b) => sum(b[1]) - sum(a[1]))
-      .slice(0, 12)
-      .forEach(([name, bucket]) => {
-        const ordered = {};
-        Array.from(bucket.keys()).sort((a, b) => a - b).forEach((year) => { ordered[year] = bucket.get(year); });
-        topics_over_time[name] = ordered;
-      });
-    return { topic: topic || null, papers_per_year: sortedYears, topics_over_time };
-  }
+  function explorerOverview(query) {
+    var q = Object.assign({ topic: null, year_min: null, year_max: null, field: null }, query || {});
+    var model = graph();
+    var scope = browserScope(q.topic, q.year_min, q.year_max, q.field);
+    var papers = scope.papers.map(function (id) { return model.nodes.get(id); }).filter(Boolean);
 
-  const sum = (bucket) => Array.from(bucket.values()).reduce((total, value) => total + value, 0);
-
-  /* ------------------------------------------------------------ explorer -- */
-
-  async function explorerOverview(params) {
-    const q = Object.assign({ topic: null, year_min: null, year_max: null, field: null }, params || {});
-    const graph = graphOrThrow();
-    const scope = await scopedPapers(q.topic);
-    let papers = scope.papers.map((id) => graph.nodes.get(id)).filter(Boolean);
-    papers = papers.filter((paper) => (paper.type === "Paper") &&
-      passesYearFilters(paper, q.year_min, q.year_max) && (!q.field || paper.props.field === q.field));
-
-    const authors = new Set();
-    const datasets = new Set();
-    const communities = new Set();
-    const methodsInUse = new Set();
-    papers.forEach((paper) => {
-      (graph.adj.get(paper.id) || []).forEach(({ edge, other, direction }) => {
-        if (edge.type === "AUTHORED" && direction === "in") authors.add(other);
-        if (edge.type === "USES_DATASET" && direction === "out") datasets.add(other);
-        if (edge.type === "USES_METHOD" && direction === "out") methodsInUse.add(other);
+    var authors = new Set();
+    var datasets = new Set();
+    var communities = new Set();
+    papers.forEach(function (paper) {
+      (model.adjacency.get(paper.id) || []).forEach(function (entry) {
+        if (entry.edge.type === "AUTHORED" && entry.direction === "in") authors.add(entry.other);
+        if (entry.edge.type === "USES_DATASET" && entry.direction === "out") datasets.add(entry.other);
       });
       if (paper.community >= 0) communities.add(paper.community);
     });
 
-    const years = {};
-    papers.forEach((paper) => {
-      const year = yearOf(paper);
+    var years = {};
+    papers.forEach(function (paper) {
+      var year = paper.props.year;
       if (year) years[year] = (years[year] || 0) + 1;
     });
-    const ordered = {};
-    Object.keys(years).map(Number).sort((a, b) => a - b).forEach((year) => { ordered[year] = years[year]; });
-    const yearKeys = Object.keys(ordered).map(Number);
-    const recent = yearKeys.filter((year) => year >= 2023).reduce((total, year) => total + ordered[year], 0);
-    const totalPapers = papers.length;
+    var ordered = {};
+    Object.keys(years).map(Number).sort(function (a, b) { return a - b; })
+      .forEach(function (year) { ordered[year] = years[year]; });
 
-    // `store.top()` ranks the whole label (not the scope) — the explorer mirrors that,
-    // and the UI labels these lists as corpus-wide leaderboards.
-    const topper = (label, metric, limit) => (graph.byLabel.get(label) || [])
-      .slice()
-      .sort((a, b) => b[metric] - a[metric])
-      .slice(0, limit)
-      .map((node) => ({
-        id: node.id, label: node.label, type: node.type,
-        value: round(node[metric], 6), degree: node.degree, year: yearOf(node),
-        community: node.community, url: node.props.url ?? null,
-      }));
+    var conflictsPayload = state.datasets["conflicts.json"] || {};
+    var predictionsPayload = state.datasets["predictions.json"] || {};
+    var status = (state.datasets["health.json"] || {}).status;
 
     return {
       scope: {
@@ -714,614 +750,949 @@
         resolution: scope.resolution,
       },
       counts: {
-        papers: totalPapers, authors: authors.size, topics: scope.topics.length,
+        papers: papers.length, authors: authors.size, topics: scope.topics.length,
         methods: scope.methods.length, datasets: datasets.size, institutions: 0,
         communities: communities.size,
-        claims: (graph.byLabel.get("Claim") || []).length,   // corpus-wide, like the engine
+        claims: nodeLabelList("Claim").length,
       },
       years: ordered,
-      recency: totalPapers ? {
-        papers_since_2023: recent,
-        share_since_2023: round(recent / totalPapers, 3),
-        newest_year: yearKeys.length ? yearKeys[yearKeys.length - 1] : null,
-        oldest_year: yearKeys.length ? yearKeys[0] : null,
-      } : {},
-      top_papers: topper("Paper", "pagerank", 8),
-      top_topics: topper("Topic", "pagerank", 10),
-      top_methods: topper("Method", "degree", 10),
-      top_bridge_papers: topper("Paper", "betweenness", 8),
-      communities: (graph.communities || [])
-        .filter((profile) => !communities.size || communities.has(profile.community_index))
-        .slice(0, 10),
-      methods_in_scope: methodsInUse.size,
-      status: staticStatus(),
-      scope_source: scope.exact ? "shipped gap-engine resolution" : "browser token match",
+      recency: recencyOf(ordered),
+      top_papers: topBy("pagerank", "Paper", 8),
+      top_topics: topBy("pagerank", "Topic", 10),
+      top_methods: topBy("degree", "Method", 10),
+      top_bridge_papers: topBy("betweenness", "Paper", 8),
+      communities: (model.communities || []).filter(function (profile) {
+        return !communities.size || communities.has(profile.community_index);
+      }).slice(0, 10),
+      conflicts: (conflictsPayload.conflicts || []).slice(0, 6),
+      predicted_links: (predictionsPayload.links || []).slice(0, 8),
+      dataset_labels: {
+        institutions: "No affiliation data in this snapshot — affiliations are seeded by ingestion when they exist.",
+        papers: "Papers are the curated demo corpus records; every row links to its arXiv listing.",
+      },
+      status: {
+        backend: "static-snapshot", requested_backend: "static-snapshot", degraded: false,
+        reason: "Published snapshot: analytics recomputed in the browser from data/graph.json.",
+        warnings: [], engine: "browser-snapshot", revision: 1, uptime_seconds: 0,
+      },
+      static_snapshot: { note: "Explorer metrics recomputed in the browser over the shipped graph " +
+        "(the demo scopes are served verbatim from the build).", recorded_scope: null },
     };
   }
 
-  /* -------------------------------------------------------- DSL planner -- */
+  /* --------------------------------------------------------------- timeline */
 
-  /* ------------------------------------------------------------- agent --- */
-
-  async function agentAnswer(question, options) {
-    const opts = Object.assign({ depth: 2, top_k: 12 }, options || {});
-    const key = slug(question);
-    const recorded = await haveJSON(`agent--${key}.json`);
-    if (recorded) return decorate(recorded, question);
-
-    const index = state.index;
-    const known = (index && index.precomputed && index.precomputed.questions) || [];
-    let best = null, bestScore = 0;
-    const tokens = contentTokens(question);
-    known.forEach((candidate) => {
-      const score = jaccard(tokens, contentTokens(candidate));
-      if (score > bestScore) { bestScore = score; best = candidate; }
+  function timeline(topic) {
+    var model = graph();
+    var scoped = null;
+    if (topic) {
+      var scope = browserScope(topic, null, null, null);
+      scoped = new Set(scope.papers);
+    }
+    var years = {};
+    var topicYears = {};
+    model.edges.forEach(function (edge) {
+      if (edge.type !== "STUDIES") return;
+      var paper = model.nodes.get(edge.src);
+      if (!paper || paper.type !== "Paper") return;
+      if (scoped && !scoped.has(paper.id)) return;
+      var year = paper.props.year;
+      if (!year) return;
+      years[year] = (years[year] || 0) + 1;
+      var topicNode = model.nodes.get(edge.dst);
+      if (!topicNode) return;
+      if (!topicYears[topicNode.name]) topicYears[topicNode.name] = {};
+      topicYears[topicNode.name][year] = (topicYears[topicNode.name][year] || 0) + 1;
     });
-    if (best && bestScore >= 0.6) {
-      const payload = await haveJSON(`agent--${slug(best)}.json`);
-      if (payload) {
-        const decorated = decorate(payload, question);
-        decorated.answer = `${decorated.answer}\n\n(Static snapshot: this is the recorded answer for the closest ` +
-          `precomputed question — “${best}”. Run the app locally for a live answer to this wording.)`;
-        return decorated;
-      }
-    }
-    return templateAnswer(question, opts, known);
+    var ordered = {};
+    Object.keys(years).map(Number).sort(function (a, b) { return a - b; })
+      .forEach(function (year) { ordered[year] = years[year]; });
+    var top = Object.keys(topicYears).sort(function (a, b) {
+      var sum = function (entry) { return Object.keys(entry).reduce(function (t, y) { return t + entry[y]; }, 0); };
+      return sum(topicYears[b]) - sum(topicYears[a]);
+    }).slice(0, 12);
+    var series = {};
+    top.forEach(function (name) { series[name] = topicYears[name]; });
+    return { topic: topic || null, papers_per_year: ordered, topics_over_time: series };
   }
 
-  function decorate(payload, question) {
-    const decorated = Object.assign({}, payload, {
-      question,
-      static_snapshot: {
-        mode: "recorded",
-        note: "Recorded from the live engine at build time; the question matched this precomputed answer.",
-        topics: (state.index && state.index.precomputed && state.index.precomputed.topics) || [],
-      },
+  /* ------------------------------------------------------------------ gaps */
+
+  function gapScopeFiles(payload) {
+    var files = Object.keys(payload || {}).filter(function (name) {
+      return name.indexOf("gaps--") === 0 && name.indexOf("gaps-evidence--") !== 0;
     });
-    return decorated;
+    return files.map(function (name) { return name.replace("gaps--", "").replace(".json", ""); });
   }
 
-  /* graph templates: the same shape the engine returns when no LLM key is configured */
-  function templateAnswer(question, opts, known) {
-    const graph = graphOrThrow();
-    const tokens = contentTokens(question);
-    const text = question.toLowerCase();
-    const topicNode = (graph.byLabel.get("Topic") || []).find((topic) =>
-      tokens.some((token) => topic.label.toLowerCase().includes(token))) || null;
-
-    const papers = (graph.byLabel.get("Paper") || []).slice();
-    const topByPagerank = papers.slice().sort((a, b) => b.pagerank - a.pagerank).slice(0, 5);
-    const topByBetweenness = papers.slice().sort((a, b) => b.betweenness - a.betweenness).slice(0, 5);
-    const conflicts = graph.edges.filter((edge) => edge.type === "CONTRADICTS" && edge.provenance !== "predicted");
-    const predicted = graph.edges.filter((edge) => edge.type === "PREDICTED_LINK");
-    const communities = (graph.communities || []).slice(0, 4);
-
-    let answer;
-    let intent = "general_qa";
-    const parts = [];
-    if (/contradict|conflict|tension/.test(text)) {
-      intent = "contradictions";
-      const rows = conflicts.slice(0, 3).map((edge) => {
-        const a = graph.nodes.get(edge.source), b = graph.nodes.get(edge.target);
-        const textA = a ? a.label : edge.source, textB = b ? b.label : edge.target;
-        return `• “${String(textA).slice(0, 120)}” vs “${String(textB).slice(0, 120)}” ` +
-          `(weight ${round(edge.weight || 0, 2)}).`;
-      });
-      parts.push(`${conflicts.length} claim-level tensions exist in this corpus snapshot ` +
-        `(potential contradictions, not established facts):`);
-      parts.push(...rows);
-    } else if (/gap|opportunit|underexplored/.test(text)) {
-      intent = "gaps";
-      const scope = (topicNode && topicNode.label) || null;
-      const payload = scope ? await_have(`gaps--${slug(scope)}.json`) : await_have("gaps--default.json");
-      const top = payload && payload.opportunities ? payload.opportunities : [];
-      parts.push(scope
-        ? `Candidate opportunities are scoped to “${scope}” (${payload ? payload.scope.papers : 0} papers in scope).`
-        : "Candidate opportunities cover the whole corpus snapshot.");
-      top.slice(0, 3).forEach((opportunity) => {
-        parts.push(`• ${opportunity.title} — prototype score ${round(opportunity.opportunity_score, 1)}/100, ` +
-          `${opportunity.confidence} confidence, trajectory ${opportunity.trajectory ? opportunity.trajectory.status : "n/a"}.`);
-      });
-      parts.push("These are hypotheses generated from graph structure; they are not claims that nobody has researched this.");
-    } else if (/communit|cluster/.test(text)) {
-      intent = "communities";
-      parts.push(`${communities.length ? (graph.communities || []).length : 0} Louvain communities were detected. The largest cover:`);
-      communities.forEach((community) => {
-        parts.push(`• ${community.name} — ${community.paper_count} papers, topics: ` +
-          `${(community.top_topics || []).slice(0, 4).join(", ")}.`);
-      });
-    } else if (/bridge|connect|between/.test(text)) {
-      intent = "bridges";
-      parts.push("Bridges by betweenness centrality (attention, not quality):");
-      topByBetweenness.slice(0, 4).forEach((paper) => {
-        parts.push(`• ${paper.label} — betweenness ${round(paper.betweenness, 4)}, degree ${paper.degree}, year ${yearOf(paper) || "n/a"}.`);
-      });
-    } else {
-      intent = "important_papers";
-      parts.push("Most influential papers in this snapshot by PageRank (influence, not quality):");
-      topByPagerank.forEach((paper) => {
-        parts.push(`• ${paper.label} — PageRank ${round(paper.pagerank, 5)}, degree ${paper.degree}, year ${yearOf(paper) || "n/a"}.`);
-      });
-    }
-
-    const seeds = (topicNode ? [topicNode] : []).concat(topByPagerank.slice(0, 4)).map((node) => ({
-      id: node.id, label: node.label, type: node.type, why: "ranked in this static snapshot", score: round(node.pagerank, 4),
-    }));
-
+  function gapsNotPrecomputed(body) {
+    var index = state.index || {};
+    var topics = (index.precomputed && index.precomputed.topics) || [];
     return {
-      question,
-      intent: { name: intent, confidence: 0.4, matched: tokens.slice(0, 4) },
-      answer: parts.join("\n") + "\n\nThis answer was assembled from the exported graph in your browser " +
-        "(no LLM key, no server) — every statement maps to a node, edge or score in the response.",
-      answer_engine: "static-snapshot-template",
-      used_llm: false,
-      confidence: "Low-Medium",
-      confidence_basis: "Graph templates over the exported snapshot; run the live app for the full agent with fallback reasons and tool traces.",
-      tool_calls: [
-        { tool: "graph_metrics", ok: true, args: {}, summary: "computed in the browser" },
-        { tool: "find_conflicting_claims", ok: true, args: {}, summary: `${conflicts.length} tensions in the snapshot` },
-      ],
-      context: { papers: papers.slice(0, opts.top_k), topics: (graph.byLabel.get("Topic") || []).slice(0, 8), communities },
-      evidence: topByPagerank.slice(0, 6).map((paper) => ({
-        id: paper.id, title: paper.label, year: yearOf(paper), url: paper.props.url || null,
-      })),
-      explainability: {
-        claim: parts[0] || "Answer assembled from the exported graph snapshot.",
-        reasoning: [
-          "Loaded the exported graph (nodes and edges) recorded by the build script.",
-          "Ranked candidate papers with the PageRank values computed by the C++ kernel at build time.",
-          `Counted ${conflicts.length} CONTRADICTS edges and ${predicted.length} predicted links (always labelled).`,
-          "Composed the answer from graph templates — no LLM was called.",
-        ],
-        graph_evidence: { seeds },
-        supporting_papers: topByPagerank.slice(0, 6).map((paper) => ({
-          id: paper.id, title: paper.label, year: yearOf(paper), why: "ranked in this snapshot",
-        })),
-        confidence_basis: "Low-Medium — snapshot templates; the live agent adds retrieval, tool traces and confidence reasons.",
-        safety_notice: "AI-generated hypothesis over a curated demo corpus, not a literature review. " +
-          "Candidates are research directions, never claims that a topic is unstudied. Independently validate before investing.",
-      },
-      paths: [], predicted_links: predicted.slice(0, 8).map((edge) => ({
-        source: edge.source, target: edge.target, type: "PREDICTED_LINK", score: round(edge.weight || 0, 4),
-        label: "hypothesis — not an established relationship",
-      })),
-      conflicts: conflicts.slice(0, 6).map((edge) => ({
-        claim_a: edge.source, claim_b: edge.target, score: round(edge.weight || 0, 3), kind: "recorded tension",
-        text_a: (graph.nodes.get(edge.source) || {}).label, text_b: (graph.nodes.get(edge.target) || {}).label,
-        reasons: ["Recorded CONTRADICTS edge shipped in the graph export."],
-      })),
-      follow_ups: (known && known.length ? known.slice(0, 4) : []),
-      status: staticStatus(),
-      static_snapshot: {
-        mode: "computed",
-        note: "No recorded answer matched this question, so the graph-template fallback answered in your browser.",
-        topics: (state.index && state.index.precomputed && state.index.precomputed.topics) || [],
-      },
-    };
-  }
-
-  // small sync helper for the template path (answers are built synchronously)
-  function await_have(name) {
-    return Object.prototype.hasOwnProperty.call(state.datasets, name) ? state.datasets[name] : null;
-  }
-
-  /* ------------------------------------------------------------- reports -- */
-
-  async function reportPayload(body) {
-    /* the opportunity report is a build artefact: the report engine renders markdown and
-       JSON at build time, so the static layer replays exactly what it produced */
-    const topic = body && body.topic ? body.topic : null;
-    const payload = await haveJSON(`report--${slug(topic)}.json`);
-    if (payload) return payload;
-    const available = Object.keys(state.datasets || {}).filter((name) => name.startsWith("report--")).length;
-    throw httpError(404, `static snapshot: reports were precomputed for the demo scopes only ` +
-      `(${available} topics). Run the app locally (python run.py) for a report on “${topic || "the whole corpus"}”.`);
-  }
-
-  async function gapsPayload(body) {
-    const topic = body && body.topic ? body.topic : null;
-    const recorded = await haveJSON(`gaps--${slug(topic)}.json`);
-    if (recorded) {
-      return Object.assign({}, recorded, {
-        static_snapshot: { mode: "recorded", note: "Computed by the gap engine at build time." },
-      });
-    }
-    const index = state.index || {};
-    const topics = (index.precomputed && index.precomputed.topics) || [];
-    const { SAFETY_NOTICE } = staticNotices();
-    return {
-      topic, resolution: { query: topic, matched_topics: [], strategy: "static-snapshot" },
-      scope: { topic, year_min: body ? body.year_min : null, year_max: body ? body.year_max : null,
-               field: null, papers: 0, resolution: { query: topic, matched_topics: [], strategy: "static-snapshot" } },
-      methodology: ["Static snapshot: gap scoring runs at build time over the shipped corpus."],
-      score_formula: {},
-      safety_notice: SAFETY_NOTICE,
-      limitations: ["Scores are computed over this curated corpus only, and are a prototype heuristic."],
-      clusters: [],
-      opportunities: [],
-      filtered_pairs: [],
-      ranking: { note: "No live scoring in the static build." },
-      score_distribution: { candidates_considered: 0, unique_candidates: 0, rank_1_score: null },
-      reason: `Static snapshot: the gap engine ran at build time for ${topics.length} scopes ` +
-        `(${topics.slice(0, 6).join(", ")}${topics.length > 6 ? ", …" : ""}). ` +
-        `Run the app locally (python run.py, or docker compose up) to score “${topic || "any"}” live.`,
+      topic: body.topic || null, engine: "nexus-gap-engine (recorded at build time)",
+      safety_notice: (state.datasets["dashboard.json"] || {}).safety_notice ||
+        "AI-generated hypotheses over a curated demo corpus. Candidates are research directions, " +
+        "never claims that a topic is unstudied — validate independently before acting.",
       score_label: "NEXUS Opportunity Score",
-      static_snapshot: { mode: "unavailable", precomputed_topics: topics },
+      score_formula: {},
+      methodology: ["The published site replays the gap engine's build-time output for the demo scopes."],
+      limitations: ["This snapshot only contains the scopes computed at build time."],
+      scope: { topic: body.topic || null, papers: 0, resolution: { strategy: "not-precomputed" } },
+      resolution: { query: body.topic || null, matched_topics: [], strategy: "not-precomputed" },
+      opportunities: [], filtered_pairs: [], clusters: [],
+      score_distribution: { candidates_considered: 0, unique_candidates: 0 },
+      ranking: { note: "Static snapshot: no pairs were scored in the browser." },
+      reason: "This scope was not precomputed. The published build scores these topics: " +
+              topics.join(", ") + ". Run the app locally (python run.py) " +
+              "or via docker compose to score any other scope live.",
+      static_snapshot: { mode: "not-precomputed", topics: topics },
     };
   }
 
-  function staticNotices() {
+  /* ----------------------------------------------------------------- agent */
+
+  function contentTokens(text) {
+    var stop = new Set(("a an and are as at be by do does for from how i in into is it its me my of on or " +
+      "should that the their them then there these this to us was were what when where which who why will " +
+      "with you your we our").split(" "));
+    return String(text || "").toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/)
+      .filter(function (token) { return token.length > 2 && !stop.has(token); });
+  }
+
+  function jaccard(a, b) {
+    var left = new Set(a), right = new Set(b);
+    if (!left.size || !right.size) return 0;
+    var shared = 0;
+    left.forEach(function (token) { if (right.has(token)) shared += 1; });
+    return shared / (left.size + right.size - shared);
+  }
+
+  function answeredQuestions(index) {
+    return (index.precomputed && index.precomputed.questions) || [];
+  }
+
+  function matchQuestion(question, index) {
+    var questions = answeredQuestions(index);
+    var needle = String(question || "").trim().toLowerCase();
+    for (var i = 0; i < questions.length; i += 1) {
+      if (questions[i].trim().toLowerCase() === needle) return { question: questions[i], score: 1 };
+    }
+    var tokens = contentTokens(question);
+    var best = null;
+    questions.forEach(function (candidate) {
+      var score = jaccard(tokens, contentTokens(candidate));
+      if (!best || score > best.score) best = { question: candidate, score: score };
+    });
+    return best && best.score >= 0.5 ? best : null;
+  }
+
+  /* A handful of agent answers are graph computations, not text generation, so they can be
+     recomputed here. They mirror the server's offline templates: the wording is the
+     server's, the numbers come from the shipped snapshot. */
+  async function offlineAnswer(question) {
+    var model = graph();
+    var safety = "This answer was computed from the shipped graph snapshot in your browser; " +
+      "every number is a graph metric over the curated demo corpus, not a literature claim.";
+    var tokens = contentTokens(question);
+    var topic = null;
+    nodeLabelList("Topic").forEach(function (node) {
+      if (topic) return;
+      var name = node.name.toLowerCase();
+      if (tokens.indexOf(name) !== -1 || (name.length > 5 && question.toLowerCase().indexOf(name) !== -1)) topic = node;
+    });
+
+    var intent = "overview";
+    if (/contradict|conflict|inconsist/.test(question.toLowerCase())) intent = "conflicts";
+    else if (/gap|opportunit|unexplored/.test(question.toLowerCase())) intent = "gaps";
+    else if (/central|influential|important|read first/.test(question.toLowerCase())) intent = "centrality";
+    else if (/communit|cluster/.test(question.toLowerCase())) intent = "communities";
+    else if (/predict|hypothes/.test(question.toLowerCase())) intent = "predictions";
+
+    if (intent === "conflicts") {
+      var rows = conflicts().slice(0, 5);
+      return buildAnswer(question, intent,
+        rows.length
+          ? "The corpus contains " + conflicts().length + " claim pairs the resolver flags as potential contradictions. " +
+            "They are AI-detected tensions for a human to read, not established contradictions:\n\n" +
+            rows.map(function (row) { return "- “" + String(row.text_a || "").slice(0, 120) + "…” vs “" +
+              String(row.text_b || "").slice(0, 120) + "…” (score " + row.score + ")"; }).join("\n")
+          : "No contradictory claim pairs were recorded in this snapshot.",
+        ["find_conflicting_claims"], safety);
+    }
+    if (intent === "gaps") {
+      var key = topic ? slug(topic.name) : "default";
+      var recorded = await load("gaps--" + key + ".json");
+      if (recorded && recorded.opportunities && recorded.opportunities.length) {
+        return buildAnswer(question, intent,
+          "The gap engine scored " + (recorded.score_distribution && recorded.score_distribution.candidates_considered) +
+          " candidate pairs for “" + (recorded.topic || "the whole corpus") + "”. Top candidates (" +
+          recorded.score_label + "):\n\n" +
+          recorded.opportunities.slice(0, 3).map(function (opp) {
+            return "- " + opp.title + " — " + opp.opportunity_score + "/100 (rank " + opp.rank + ")";
+          }).join("\n") + "\n\n" + (recorded.safety_notice || ""),
+          ["find_research_gaps"], safety);
+      }
+      return buildAnswer(question, intent,
+        "This snapshot precomputes gap scores for the demo topics; “" + (topic ? topic.name : "that scope") +
+        "” is not one of them. Running NEXUS locally scores any scope live.", ["find_research_gaps"], safety);
+    }
+    if (intent === "communities") {
+      var profiles = (model.communities || []).slice(0, 5);
+      return buildAnswer(question, intent,
+        "Louvain detected " + (model.communities || []).length + " communities over the corpus. The largest:\n\n" +
+        profiles.map(function (profile) {
+          return "- " + profile.name + " — " + profile.paper_count + " papers, " + profile.topic_count + " topics";
+        }).join("\n"),
+        ["detect_communities"], safety);
+    }
+    if (intent === "predictions") {
+      var links = predictedLinks().slice(0, 5);
+      return buildAnswer(question, intent,
+        links.length
+          ? "Link prediction proposes " + predictedLinks().length + " connections that are not in the graph. " +
+            "These are hypotheses with a score, never facts:\n\n" +
+            links.map(function (link) {
+              return "- " + (link.label || (link.source + " → " + link.target)) + " (Adamic-Adar " +
+                (link.adamic_adar || 0) + ")";
+            }).join("\n")
+          : "No predicted links in this snapshot.", ["find_potential_connections"], safety);
+    }
+    var top = topBy("pagerank", "Paper", 5);
+    return buildAnswer(question, intent,
+      "By PageRank within this corpus, the most central papers are:\n\n" +
+      top.map(function (paper, index) {
+        return (index + 1) + ". " + paper.label + " (" + (paper.year || "n/a") + ") — PageRank " + paper.value;
+      }).join("\n") + "\n\nBetweenness (bridging) is a different ranking — " +
+      topBy("betweenness", "Paper", 3).map(function (paper) { return paper.label; }).join(", ") + ".",
+      ["rank_papers"], safety);
+  }
+
+  function buildAnswer(question, intent, text, tools, safety) {
+    var model = graph();
+    var top = topBy("pagerank", "Paper", 3);
     return {
-      SAFETY_NOTICE: "AI-generated hypothesis over a curated demo corpus, not a literature review. " +
-        "Candidates are research directions, never claims that a topic is unstudied. " +
-        "Independently validate every candidate before investing time or money.",
+      question: question, intent: intent, answer: text,
+      answer_engine: "browser-snapshot", used_llm: false,
+      confidence: "medium", confidence_basis: "graph metrics over the shipped snapshot",
+      evidence: top.map(function (paper) {
+        return { id: paper.id, label: paper.label, year: paper.year, url: paper.url,
+                 reason: "high PageRank in this corpus (graph metric, not a citation count)" };
+      }),
+      tool_calls: tools.map(function (tool) { return { tool: tool, arguments: {}, ok: true, summary: "completed (browser)" }; }),
+      context: { nodes: model.nodes.size, edges: model.edges.length, source: "data/graph.json" },
+      paths: [], predicted_links: [], conflicts: [],
+      explainability: {
+        claim: text.split("\n")[0],
+        reasoning: [
+          "The question was matched to a graph intent (" + intent + ") by keywords.",
+          "The answer is computed from the shipped graph snapshot in the browser.",
+          "Every number is a graph metric over the curated corpus and can be traced in the views.",
+        ],
+        graph_evidence: top.map(function (paper) { return paper.id + " (" + paper.value + " PageRank)"; }),
+        supporting_papers: top.map(function (paper) { return { id: paper.id, label: paper.label, year: paper.year, url: paper.url }; }),
+        confidence_basis: "medium — browser-side graph computation, no language model involved",
+        safety_notice: safety,
+      },
+      follow_ups: [
+        "Which claims contradict each other about agent memory?",
+        "What are the most important research gaps in AI agents?",
+      ],
+      static_snapshot: { mode: "computed-in-browser", note: safety },
     };
   }
 
-  /* -------------------------------------------------------------- router -- */
+  /* ------------------------------------------------------------------ plan */
 
-  function queryOf(path) {
-    const index = path.indexOf("?");
-    return {
-      route: index === -1 ? path : path.slice(0, index),
-      params: new URLSearchParams(index === -1 ? "" : path.slice(index + 1)),
-    };
+  /* the API's own note for a plan payload (served verbatim by both engines) */
+  var PLANNER_NOTE = "Cypher here is generated, not executed: labels and relationship types come " +
+    "from the whitelist and every value is a bind parameter.";
+
+  var RE_TOPIC = /topic\s*:\s*"([^"]+)"/i;
+  var RE_AUTHOR = /author\s*:\s*"([^"]+)"/i;
+  var RE_YEAR_MIN = /year\s*>=\s*(\d{4})/i;
+  var RE_YEAR_MAX = /year\s*<=\s*(\d{4})/i;
+  var RE_DEPTH = /depth\s*<=?\s*(\d{1,2})/i;
+  var RE_LIMIT = /limit\s+(\d{1,4})/i;
+  var RE_TYPE = /type\s+in\s*\(([^)]*)\)/i;
+  var RE_REL = /rel\s+in\s*\(([^)]*)\)/i;
+
+  function pick(raw, allowed, kind) {
+    var value = String(raw || "").trim();
+    var match = allowed.filter(function (candidate) { return candidate.toLowerCase() === value.toLowerCase(); })[0];
+    if (!match) {
+      throw { dsl: true, error: "Unknown " + kind + " '" + value + "'. Allowed: " + allowed.join(", ") };
+    }
+    return match;
   }
 
-  async function api(path, options) {
-    const opts = options || {};
-    const body = opts.body ? (typeof opts.body === "string" ? JSON.parse(opts.body) : opts.body) : {};
-    const { route, params } = queryOf(path);
-    const numberOrNull = (key) => (params.get(key) === null || params.get(key) === ""
-      ? null : Number(params.get(key)));
-
-    await load();
-
-    if (route === "/api/health") {
-      const health = await haveJSON("health.json");
-      if (!health) throw httpError(404, "static snapshot: health.json is missing");
-      return Object.assign({}, health, {
-        store: Object.assign({}, health.store, { engine: "static-snapshot", requested_engine: health.store.engine }),
-        notices: (health.notices || []).concat([
-          "Static snapshot: engines ran at build time. Graph queries are computed in your browser.",
-        ]),
-        static_snapshot: state.index || null,
-      });
-    }
-    if (route === "/api/services") {
-      const services = await haveJSON("services.json");
-      if (services) return services;
-    }
-    for (const [prefix, file] of [["/api/dashboard", "dashboard.json"], ["/api/algorithms", "algorithms.json"],
-                                  ["/api/safety", "safety.json"], ["/api/tools", "tools.json"],
-                                  ["/api/mcp", "mcp.json"], ["/api/opportunity-score", "opportunity-score.json"],
-                                  ["/api/communities", "communities.json"], ["/api/conflicts", "conflicts.json"],
-                                  ["/api/predictions", "predictions.json"], ["/api/centrality", "centrality.json"]]) {
-      if (route === prefix) {
-        const payload = await haveJSON(file);
-        if (payload) return payload;
-      }
-    }
-    if (route === "/api/timeline") {
-      const topic = params.get("topic");
-      const recorded = await haveJSON(`timeline--${slug(topic)}.json`);
-      if (recorded) return recorded;                     // byte-exact for precomputed scopes
-      return timelinePayload(topic);                     // otherwise computed here
-    }
-    if (route === "/api/explorer") {
-      const query = {
-        topic: params.get("topic"), field: params.get("field"),
-        year_min: numberOrNull("year_min"), year_max: numberOrNull("year_max"),
-      };
-      const filtered = query.field || query.year_min !== null || query.year_max !== null;
-      if (!filtered) {
-        const recorded = await haveJSON(`explorer--${slug(query.topic)}.json`);
-        if (recorded) return recorded;
-      }
-      const payload = await explorerOverview(query);
-      const corpusConflicts = await haveJSON("conflicts.json");
-      if (corpusConflicts) {
-        payload.conflicts = (corpusConflicts.conflicts || []).slice(0, 6);
-      }
-      return payload;
-    }
-    if (route === "/api/graph") {
-      if (opts.method === "POST") return graphPayload(body);
-      return graphPayload({ query: params.get("topic") || params.get("query"),
-                            depth: Number(params.get("depth") || 1),
-                            year_min: numberOrNull("year_min"), year_max: numberOrNull("year_max"),
-                            max_nodes: Number(params.get("max_nodes") || 260) });
-    }
-    if (route === "/api/graph/expand") return expandPayload(body.node_ids, body.rel_types, body.limit);
-    if (route.startsWith("/api/graph/neighbours/")) {
-      return neighbours(decodeURIComponent(route.slice("/api/graph/neighbours/".length)),
-                        Number(params.get("limit") || 60));
-    }
-    if (route === "/api/graph/path") {
-      return shortestPath(params.get("source"), params.get("target"), numberOrNull("max_hops"));
-    }
-    if (route === "/api/papers") {
-      return paperItems(null, { q: params.get("q"), topic: params.get("topic"), field: params.get("field"),
-                                year_min: numberOrNull("year_min"), year_max: numberOrNull("year_max"),
-                                sort: params.get("sort") || "pagerank", order: params.get("order") || "desc",
-                                limit: Number(params.get("limit") || 40), offset: Number(params.get("offset") || 0) });
-    }
-    if (route.startsWith("/api/papers/")) {
-      const id = decodeURIComponent(route.slice("/api/papers/".length));
-      const key = id.startsWith("paper:") ? id : `paper:${id}`;
-      const detail = nodeDetail(key);
-      if (detail.type !== "Paper") throw httpError(404, `'${id}' is not a paper`);
-      return Object.assign({ id: detail.id, label: detail.label, type: detail.type }, detail);
-    }
-    if (route === "/api/nodes") {
-      const label = params.get("label");
-      const list = ((graphOrThrow().byLabel.get(label) || [])).slice()
-        .sort((a, b) => (params.get("sort") === "degree" ? b.degree - a.degree : b.pagerank - a.pagerank));
-      const offset = Number(params.get("offset") || 0);
-      const limit = Number(params.get("limit") || 50);
-      return { total: list.length, offset, limit, items: list.slice(offset, offset + limit).map((node) => ({
-        id: node.id, label: node.label, type: node.type, year: yearOf(node),
-        field: node.props.field ?? null, url: node.props.url ?? null,
-        pagerank: round(node.pagerank, 5), betweenness: round(node.betweenness, 5),
-        degree: node.degree, community: node.community,
-      })) };
-    }
-    if (route.startsWith("/api/nodes/")) {
-      return nodeDetail(decodeURIComponent(route.slice("/api/nodes/".length)));
-    }
-    if (route === "/api/search") {
-      const results = searchIndex(params.get("q"), params.get("labels") ? params.get("labels").split(",") : null,
-                                  Number(params.get("limit") || 25));
-      return { query: params.get("q") || "", count: results.length, results };
-    }
-    if (route === "/api/gaps") return gapsPayload(body);
-    if (route.startsWith("/api/gaps/")) {
-      const match = route.match(/^\/api\/gaps\/(\d+)\/evidence$/);
-      if (match) {
-        const topic = body && body.topic ? body.topic : null;
-        const evidence = await haveJSON(`gaps-evidence--${slug(topic)}--${match[1]}.json`);
-        if (evidence) return evidence;
-        throw httpError(404, "static snapshot: that evidence bundle was not precomputed");
-      }
-    }
-    if (route === "/api/report") return reportPayload(body);
-    if (route === "/api/report/markdown") {
-      const text = await haveText(`report--${slug(body.topic)}.md`);
-      if (text !== null) return text;
-      throw httpError(404, "static snapshot: that report was not precomputed.");
-    }
-    if (route === "/api/export/cypher") {
-      const text = await haveText("export-cypher.txt");
-      if (text !== null) return text;
-      throw httpError(404, "static snapshot: the Cypher export was not bundled.");
-    }
-    if (route === "/api/plan") {
-      const dsl = params.get("q") !== null ? params.get("q") : (body.query || "");
-      const payload = planQuery(dsl);
-      if (!payload.ok) throw httpError(422, payload.error);   // the API's contract
-      return payload;
-    }
-    if (route === "/api/agent") return agentAnswer(body.question || "", body);
-    throw httpError(404, `static snapshot: ${route} is not available without the server. ` +
-      "Run the app locally (python run.py) for the full API.");
+  function items(raw) {
+    return String(raw || "").split(",").map(function (piece) { return piece.trim(); }).filter(Boolean);
   }
 
-  async function haveText(name) {
-    if (!state.fetchImpl) return null;
-    const response = await state.fetchImpl(state.dataDir + name, { cache: "force-cache" });
-    return response.ok ? response.text() : null;
-  }
+  function parseDsl(dsl) {
+    var text = String(dsl || "");
+    var filters = [];
+    var labels = [];
+    var relationships = [];
+    var match;
 
-  async function streamText(question) {
-    const recorded = await haveText(`agent-stream--${slug(question)}.txt`);
-    if (recorded !== null) return recorded;
-    const payload = await agentAnswer(question, {});
-    const frame = (stage, detail) => `event: ${stage}\ndata: ${JSON.stringify({ stage, detail })}\n\n`;
-    return [
-      frame("intent", payload.intent),
-      frame("plan", { steps: ["load snapshot", "rank by PageRank", "compose templated answer"] }),
-      frame("tool", { tool: "graph_metrics", ok: true }),
-      frame("retrieval", { engine: "static-snapshot", papers: (payload.context.papers || []).length }),
-      frame("synthesis", { engine: payload.answer_engine, used_llm: false }),
-      frame("done", { ms: 0 }),
-      frame("answer", payload),
-    ].join("");
-  }
+    var topicSeed = null;
+    match = RE_TOPIC.exec(text);
+    if (match) { topicSeed = match[1].trim(); text = text.replace(match[0], " "); }
 
-  /* ---------------------------------------------------- DSL planner (JS) -- */
-
-  function planQuery(dsl) {
-    const NODE_LABELS = ["Paper", "Author", "Topic", "Method", "Dataset", "Institution", "Claim", "Community"];
-    const REL_TYPES = ["AUTHORED", "CITES", "STUDIES", "USES_METHOD", "USES_DATASET", "AFFILIATED_WITH",
-      "MAKES_CLAIM", "SUPPORTS", "CONTRADICTS", "BELONGS_TO", "RELATED_TO"];
-    const FULLTEXT = "nexus-fulltext";
-    const pick = (raw, allowed) => {
-      const hit = allowed.find((value) => value.toLowerCase() === raw.trim().toLowerCase());
-      if (!hit) {
-        throw reject(`Unknown ${allowed === NODE_LABELS ? "node type" : "relationship"} '${raw.trim()}'. ` +
-          `Allowed: ${allowed.join(", ")}`);
-      }
-      return hit;
-    };
-    let text = String(dsl || "");
-    let depth = 1;          // declared outside the parse guard: the catch returns, and the
-    let limit = 50;         // planner needs both afterwards
-    const filters = [];
-    const labels = [];
-    const relationships = [];
-    let topic = null;
-    const reject = (message) => ({ ok: false, engine: "nexus-js-planner", error: message });
-    const consume = (regex, apply) => {
-      const match = regex.exec(text);
-      if (!match) return null;
+    match = RE_AUTHOR.exec(text);
+    if (match) {
+      filters.push({ kind: "TextContains", field: "name", value: match[1].trim() });
       text = text.replace(match[0], " ");
-      return apply(match);
+    }
+    match = RE_YEAR_MIN.exec(text);
+    if (match) {
+      filters.push({ kind: "IntAtLeast", field: "year", value: Number(match[1]) });
+      text = text.replace(match[0], " ");
+    }
+    match = RE_YEAR_MAX.exec(text);
+    if (match) {
+      filters.push({ kind: "IntAtMost", field: "year", value: Number(match[1]) });
+      text = text.replace(match[0], " ");
+    }
+    var depth = DEFAULT_DEPTH;
+    match = RE_DEPTH.exec(text);
+    if (match) { depth = Math.min(Math.max(Number(match[1]), 1), 3); text = text.replace(match[0], " "); }
+    var limit = DEFAULT_LIMIT;
+    match = RE_LIMIT.exec(text);
+    if (match) { limit = Math.min(Math.max(Number(match[1]), 1), 500); text = text.replace(match[0], " "); }
+    match = RE_TYPE.exec(text);
+    if (match) {
+      labels = items(match[1]).map(function (piece) { return pick(piece, NODE_LABELS, "node type"); });
+      text = text.replace(match[0], " ");
+    }
+    match = RE_REL.exec(text);
+    if (match) {
+      relationships = items(match[1]).map(function (piece) { return pick(piece, REL_TYPES, "relationship"); });
+      text = text.replace(match[0], " ");
+    }
+    /* whatever is left over is the free-text seed, verbatim — the Python planner does not
+       interpret phrases like "text contains", it hands them to the full-text index. */
+    var free = text.replace(/\s+/g, " ").trim().replace(/^"|"$/g, "");
+    var seed = [topicSeed, free || null].filter(Boolean).join(" ");
+    return { text: seed || null, labels: labels, relationships: relationships,
+             filters: filters, depth: depth, limit: limit };
+  }
+
+  function estimateCost(query) {
+    var seeds = Math.min(query.limit, 200);
+    var hops = Math.max(query.depth - 1, 0);
+    var raw = seeds * (1 + hops * FANOUT);
+    return {
+      depth: query.depth, fanout: FANOUT, seeds: seeds,
+      estimated_nodes_visited: Math.min(Math.round(raw), COST_BUDGET),
+      budget: COST_BUDGET,
+      strategy: query.text ? "fulltext -> expand" : "label scan -> rank",
+      safe: raw <= COST_BUDGET,
     };
+  }
+
+  function planner(dsl) {
+    var query;
     try {
-    consume(/topic\s*:\s*"([^"]+)"/i, (m) => { topic = m[1].trim(); return null; });
-    consume(/author\s*:\s*"([^"]+)"/i, (m) => filters.push({ kind: "TextContains", field: "name", value: m[1].trim() }));
-    consume(/year\s*>=\s*(\d{4})/i, (m) => filters.push({ kind: "IntAtLeast", field: "year", value: Number(m[1]) }));
-    consume(/year\s*<=\s*(\d{4})/i, (m) => filters.push({ kind: "IntAtMost", field: "year", value: Number(m[1]) }));
-    consume(/depth\s*<=?\s*(\d{1,2})/i, (m) => { depth = Math.min(Math.max(Number(m[1]), 1), 3); return null; });
-    consume(/limit\s+(\d{1,4})/i, (m) => { limit = Math.min(Math.max(Number(m[1]), 1), 500); return null; });
-    consume(/type\s+in\s*\(([^)]*)\)/i, (m) => {
-      m[1].split(",").map((s) => s.trim()).filter(Boolean).forEach((raw) => labels.push(pick(raw, NODE_LABELS)));
-      return null;
-    });
-    consume(/rel\s+in\s*\(([^)]*)\)/i, (m) => {
-      m[1].split(",").map((s) => s.trim()).filter(Boolean).forEach((raw) => relationships.push(pick(raw, REL_TYPES)));
-      return null;
-    });
-    } catch (rejected) {
-      return rejected && rejected.ok === false ? rejected : reject(String(rejected && rejected.message || rejected));
+      query = parseDsl(dsl);
+    } catch (error) {
+      if (error && error.dsl) return { ok: false, engine: "nexus-js-planner", error: error.error };
+      throw error;
     }
-    const free = text.replace(/\s+/g, " ").trim().replace(/^"|"$/g, "");
-    const seed = [topic, free || null].filter(Boolean).join(" ");
-
-    if (!seed && !filters.length && !labels.length && !relationships.length) {
-      return reject('empty query: give free text, a topic:"…" phrase, or a structured clause');
+    if (!query.text && !query.filters.length && !query.labels.length && !query.relationships.length) {
+      return { ok: false, engine: "nexus-js-planner",
+               error: 'empty query: give free text, a topic:"…" phrase, or a structured clause' };
     }
 
-    const params = {};
-    const why = [];
-    const predicates = [];
-    filters.forEach((filter) => {
-      const { kind, field, value } = filter;
-      if (kind === "TextEquals") { predicates.push(`toLower(n.${field}) = toLower($${field}Exact)`); params[`${field}Exact`] = value; }
-      if (kind === "TextContains") { predicates.push(`toLower(n.${field}) CONTAINS toLower($${field})`); params[field] = value; }
-      if (kind === "IntAtLeast") { predicates.push(`n.${field} >= $${field}Min`); params[`${field}Min`] = value; }
-      if (kind === "IntAtMost") { predicates.push(`n.${field} <= $${field}Max`); params[`${field}Max`] = value; }
-      if (kind === "InList") { predicates.push(`n.${field} IN $${field}List`); params[`${field}List`] = value; }
-    });
-    if (labels.length) why.push(`Restricted scan to labels: ${labels.join(", ")}.`);
-    if (filters.length) {
-      why.push("Applied structured filters: " + filters.map((f) => `${f.kind}(field=${f.field}, value=${f.value})`).join(", "));
-    }
-    if (relationships.length) {
-      predicates.push(`(n)-[${relationships.join("|")}]-()`);
-      why.push(`Relationship filter: edge type must be one of ${relationships.join(", ")}.`);
-    }
-    const where = predicates.join(" AND ");
+    var params = {};
+    var why = [];
+    var labels = query.labels;
+    var labelClause = !labels.length ? "n"
+      : (labels.length === 1 ? "n:" + labels[0] : "n:" + labels.join("|"));
+    if (labels.length) why.push("Restricted scan to labels: " + labels.join(", ") + ".");
 
-    let cypher;
-    if (seed) {
-      why.push(`Free text '${seed}' handled by the full-text index (tokenised, relevance-ranked).`);
-      params.q = seed;
-      params.limit = limit;
-      const head = [
-        `CALL db.index.fulltext.queryNodes('${FULLTEXT}', $q) YIELD node AS n, score`,
-        "WHERE score > 0.0",
-      ];
-      if (labels.length) head[1] += " AND (" + labels.map((l) => `'${l}' IN labels(n)`).join(" OR ") + ")";
-      const lines = head.slice();
+    var predicates = [];
+    query.filters.forEach(function (filt) {
+      var field = filt.field, kind = filt.kind, value = filt.value;
+      if (kind === "TextEquals") { predicates.push("toLower(n." + field + ") = toLower($" + field + "Exact)"); params[field + "Exact"] = value; }
+      else if (kind === "TextContains") { predicates.push("toLower(n." + field + ") CONTAINS toLower($" + field + ")"); params[field] = value; }
+      else if (kind === "IntAtLeast") { predicates.push("n." + field + " >= $" + field + "Min"); params[field + "Min"] = value; }
+      else if (kind === "IntAtMost") { predicates.push("n." + field + " <= $" + field + "Max"); params[field + "Max"] = value; }
+      else if (kind === "InList") { predicates.push("n." + field + " IN $" + field + "List"); params[field + "List"] = value; }
+    });
+    if (query.filters.length) {
+      why.push("Applied structured filters: " + query.filters.map(function (filt) {
+        return filt.kind + "(field=" + filt.field + ", value=" + filt.value + ")";
+      }).join(", "));
+    }
+    if (query.relationships.length) {
+      predicates.push("(n)-[" + query.relationships.join("|") + "]-()");
+      why.push("Relationship filter: edge type must be one of " + query.relationships.join(", ") + ".");
+    }
+    var where = predicates.join(" AND ");
+    var cypher;
+    if (query.text) {
+      params.q = query.text;
+      params.limit = query.limit;
+      why.push("Free text '" + query.text + "' handled by the full-text index (tokenised, relevance-ranked).");
+      var header = ["CALL db.index.fulltext.queryNodes('nexus-fulltext', $q) YIELD node AS n, score",
+                    "WHERE score > 0.0"];
+      if (labels.length) header[1] += " AND (" + labels.map(function (name) { return "'" + name + "' IN labels(n)"; }).join(" OR ") + ")";
+      var lines = header.slice();
       if (where) {
-        lines.push(`WITH n, score WHERE ${where}`);
+        lines.push("WITH n, score WHERE " + where);
         why.push("Post-filter applied on indexed properties (bound parameters only).");
       }
       lines.push("RETURN n, score ORDER BY score DESC LIMIT $limit");
       cypher = lines.join("\n");
     } else {
-      params.limit = limit;
-      why.push(`Limit ${limit} keeps the first paint under a second (progressive expansion).`);
-      const labelClause = !labels.length ? "n" : labels.length === 1 ? `n:${labels[0]}` : `n:${labels.join("|")}`;
-      const lines = [`MATCH (${labelClause})`];
-      if (where) lines.push(`WHERE ${where}`);
-      lines.push("RETURN n", "ORDER BY coalesce(n.pagerank, 0.0) DESC", "LIMIT $limit");
-      cypher = lines.join("\n");
+      params.limit = query.limit;
+      why.push("Limit " + query.limit + " keeps the first paint under a second (progressive expansion).");
+      var parts = ["MATCH (" + labelClause + ")"];
+      if (where) parts.push("WHERE " + where);
+      parts = parts.concat(["RETURN n", "ORDER BY coalesce(n.pagerank, 0.0) DESC", "LIMIT $limit"]);
+      cypher = parts.join("\n");
     }
 
-    const cost = estimateCost({ labels, relationships, depth, limit, text: seed || null });
     return {
-      ok: true, engine: "nexus-js-planner", source: "browser",
-      query: { text: seed || null, labels, relationships, depth, limit },
-      cypher, params, explanation: why, cost,
-      dsl: String(dsl || ""),
-      note: "Planned in your browser from the same rules as the Kotlin reference planner " +
-        "(checked against tests/data/planner_parity.json). Cypher here is generated, not executed.",
+      ok: true, engine: "nexus-js-planner",
+      query: { text: query.text, labels: labels, relationships: query.relationships,
+               depth: query.depth, limit: query.limit },
+      cypher: cypher, params: params, explanation: why, cost: estimateCost(query),
     };
   }
 
-  function estimateCost(query, corpusEntities) {
-    const budget = corpusEntities || 4000;
-    const fanout = 8;
-    const seeds = Math.min(query.limit, 200);
-    const hops = Math.max(query.depth - 1, 0);
-    const raw = seeds * (1 + hops * fanout);
+  /* ---------------------------------------------------------------- router */
+
+  function queryPairs(search) {
+    var params = new URLSearchParams(search || "");
+    var out = {};
+    params.forEach(function (value, key) { out[key] = value; });
+    return out;
+  }
+
+  function numberOrNull(value) {
+    if (value === null || value === undefined || value === "") return null;
+    var parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function textOrNull(value) {
+    if (value === null || value === undefined) return null;
+    var trimmed = String(value).trim();
+    return trimmed ? trimmed : null;
+  }
+
+  async function api(path, options) {
+    var opts = options || {};
+    var withBody = opts.body !== undefined && opts.body !== null;
+    var body = withBody && typeof opts.body === "string" ? safeJson(opts.body) : (opts.body || {});
+    var parts = String(path).split("?");
+    var route = parts[0];
+    var params = queryPairs(parts[1]);
+
+    await ready();
+    var index = state.index || {};
+
+    /* ---------------------------------------------------------- recorded */
+    if (route === "/api/health") {
+      var health = Object.assign({}, snapshotOf("health.json"));
+      health.store = Object.assign({}, health.store, { engine: "static-snapshot" });
+      health.static_snapshot = {
+        mode: "recorded",
+        note: "The engines below ran at build time (" + ((state.index || {}).built || "unknown") +
+              "); this page serves their snapshot and recomputes the interactive views in your browser.",
+      };
+      return health;
+    }
+    if (route === "/api/dashboard") {
+      return snapshotOf("dashboard.json");
+    }
+    if (route === "/api/services") {
+      var services = Object.assign({}, snapshotOf("services.json"));
+      services.note = "Published snapshot: the sidecar sidecars below are stopped in this build. " +
+        "Their engines ran at build time and their output is what this site serves. " + (services.note || "");
+      services.static_snapshot = true;
+      return services;
+    }
+    if (route === "/api/algorithms") return snapshotOf("algorithms.json");
+    if (route === "/api/safety") return snapshotOf("safety.json");
+    if (route === "/api/tools") return snapshotOf("tools.json");
+    if (route === "/api/mcp") return snapshotOf("mcp.json");
+    if (route === "/api/opportunity-score") return snapshotOf("opportunity-score.json");
+    if (route === "/api/communities") return snapshotOf("communities.json");
+    if (route === "/api/conflicts") return snapshotOf("conflicts.json");
+    if (route === "/api/predictions") return snapshotOf("predictions.json");
+    if (route === "/api/centrality") return snapshotOf("centrality.json");
+    if (route === "/api/export/cypher") {
+      var cypher = await loadText("export-cypher.txt");
+      if (!cypher) throw notPrecomputed("the Cypher export");
+      return cypher;
+    }
+
+    /* ------------------------------------------------------------- graph */
+    if (route === "/api/graph") {
+      var isPost = opts.method === "POST";
+      var graphRequest = isPost ? resolveGraphRequest(body) : {
+        query: textOrNull(params.topic) || textOrNull(params.query),
+        depth: numberOrNull(params.depth) === null ? 1 : numberOrNull(params.depth),
+        year_min: numberOrNull(params.year_min), year_max: numberOrNull(params.year_max),
+        max_nodes: numberOrNull(params.max_nodes) || 260,
+      };
+      var payload = subgraph(graphRequest);
+      payload.status = statusPayload();
+      payload.legend = legend();
+      if (isPost) payload.request = echoGraphRequest(graphRequest);
+      return payload;
+    }
+    if (route === "/api/graph/expand") {
+      var expanded = expand(body.node_ids || [], body.rel_types || null, body.limit);
+      expanded.status = statusPayload();
+      return expanded;
+    }
+    if (route.indexOf("/api/graph/neighbours/") === 0) {
+      var nodeId = decodeURIComponent(route.slice("/api/graph/neighbours/".length));
+      var model = graph();
+      var center = model.nodes.get(nodeId);
+      if (!center) throw fail(404, "node " + nodeId + " not found");
+      var all = neighboursRawExtended(nodeId);
+      return {
+        center: nodeJsonPlain(center),
+        neighbours: all.slice(0, Math.max(1, Math.min(Number(params.limit || 60), 300))),
+        count: all.length,
+      };
+    }
+    if (route === "/api/graph/path") {
+      return shortestPath(params.source, params.target, numberOrNull(params.max_hops));
+    }
+
+    /* ------------------------------------------------------------ papers */
+    if (route === "/api/papers") {
+      var sortKey = params.sort || "pagerank";
+      var papers = listNodes({
+        label: "Paper", sort: sortKey, order: params.order || "desc",
+        year_min: numberOrNull(params.year_min), year_max: numberOrNull(params.year_max),
+        field: textOrNull(params.field), limit: Number(params.limit || 40),
+        offset: Number(params.offset || 0),
+      });
+      if (params.topic) {
+        var scope = browserScope(params.topic, numberOrNull(params.year_min),
+                                 numberOrNull(params.year_max), null);
+        var keep = new Set(scope.papers);
+        papers.items = papers.items.filter(function (item) { return keep.has(item.id); });
+        papers.total = papers.items.length;
+        papers.filtered_by_topic = params.topic;
+      }
+      if (params.q) {
+        var paperHits = new Set(search(params.q, ["Paper"], 500).map(function (hit) { return hit.id; }));
+        papers.items = papers.items.filter(function (item) { return paperHits.has(item.id); });
+        papers.filtered_by_query = params.q;
+        papers.total = papers.items.length;   // `total` describes the rows the caller gets
+      }
+      papers.sort = sortKey;
+      return papers;
+    }
+    if (route.indexOf("/api/papers/") === 0) {
+      var paperId = decodeURIComponent(route.slice("/api/papers/".length));
+      if (paperId.indexOf("paper:") !== 0) paperId = "paper:" + paperId;
+      return paperDetail(paperId);
+    }
+
+    /* ------------------------------------------------------------- nodes */
+    if (route === "/api/nodes") {
+      var label = textOrNull(params.label);
+      var nodePage = listNodes({
+        label: label, sort: params.sort || "pagerank", order: params.order || "desc",
+        year_min: numberOrNull(params.year_min), year_max: numberOrNull(params.year_max),
+        field: textOrNull(params.field), limit: Number(params.limit || 50),
+        offset: Number(params.offset || 0),
+      });
+      if (params.q) {
+        var nodeHits = new Set(search(params.q, label ? [label] : null, 500).map(function (hit) { return hit.id; }));
+        nodePage.items = nodePage.items.filter(function (item) { return nodeHits.has(item.id); });
+        nodePage.total = nodePage.items.length;
+      }
+      return nodePage;
+    }
+    if (route.indexOf("/api/nodes/") === 0) {
+      return nodeDetail(decodeURIComponent(route.slice("/api/nodes/".length)));
+    }
+    if (route === "/api/search") {
+      var results = search(params.q, params.labels ? params.labels.split(",") : null, Number(params.limit || 25));
+      return { query: params.q || "", count: results.length, results: results };
+    }
+
+    /* ---------------------------------------------------------- timeline */
+    if (route === "/api/timeline") {
+      var topicName = textOrNull(params.topic);
+      if (topicName) {
+        var recordedTimeline = await load("timeline--" + slug(topicName) + ".json");
+        if (recordedTimeline) { inject("timeline--" + slug(topicName) + ".json", recordedTimeline, route); return recordedTimeline; }
+      } else {
+        var defaultTimeline = await load("timeline.json");
+        if (defaultTimeline) { inject("timeline.json", defaultTimeline, route); return defaultTimeline; }
+      }
+      var computed = timeline(topicName);
+      computed.static_snapshot = { mode: "computed-in-browser",
+        note: "Publishing timeline recomputed in the browser from the shipped STUDIES edges." };
+      return computed;
+    }
+
+    /* ---------------------------------------------------------- explorer */
+    if (route === "/api/explorer") {
+      var explorerScope = {
+        topic: textOrNull(params.topic), year_min: numberOrNull(params.year_min),
+        year_max: numberOrNull(params.year_max), field: textOrNull(params.field),
+      };
+      var unfiltered = !explorerScope.year_min && !explorerScope.year_max && !explorerScope.field;
+      var name = explorerScope.topic ? slug(explorerScope.topic) : "default";
+      if (unfiltered) {
+        var recordedExplorer = await load("explorer--" + name + ".json");
+        if (recordedExplorer) {
+          inject("explorer--" + name + ".json", recordedExplorer, route);
+          return recordedExplorer;
+        }
+      }
+      return explorerOverview(explorerScope);
+    }
+
+    /* -------------------------------------------------------------- gaps */
+    if (route === "/api/gaps") {
+      var gapBody = body || {};
+      var key = gapBody.topic ? slug(gapBody.topic) : "default";
+      var gapFilters = Boolean(gapBody.year_min || gapBody.year_max);
+      var recordedGaps = gapFilters ? null : await load("gaps--" + key + ".json");
+      if (recordedGaps) {
+        inject("gaps--" + key + ".json", recordedGaps, route);
+        var served = recordedGaps;
+        if (gapBody.top_k && gapBody.top_k < (served.opportunities || []).length) {
+          served = Object.assign({}, served, { opportunities: served.opportunities.slice(0, gapBody.top_k) });
+        }
+        served.static_snapshot = {
+          mode: "recorded",
+          note: "Scored by the gap engine at build time (" + ((state.index || {}).built || "") + "). " +
+                "The published site serves that result verbatim" +
+                (gapBody.top_k && gapBody.top_k < (served.opportunities || []).length
+                  ? " (trimmed to the " + gapBody.top_k + " candidates you asked for)." : "."),
+        };
+        return served;
+      }
+      var reason = gapFilters
+        ? "Year-filtered gap scopes are computed live by the gap engine; the published snapshot " +
+          "contains the unfiltered demo scopes."
+        : null;
+      var missing = gapsNotPrecomputed(gapBody);
+      if (reason) missing.reason = reason;
+      return missing;
+    }
+    if (route.indexOf("/api/gaps/") === 0) {
+      throw notPrecomputed("the evidence bundle for that candidate",
+        "Every opportunity carries its evidence inline; the standalone bundle exists only in the live API.");
+    }
+
+    /* ------------------------------------------------------------ report */
+    if (route === "/api/report") {
+      var reportTopic = body && body.topic ? slug(body.topic) : "default";
+      var reportFilters = Boolean(body && (body.year_min || body.year_max));
+      var report = reportFilters ? null : await load("report--" + reportTopic + ".json");
+      if (!report) {
+        throw notPrecomputed("that opportunity report",
+          "The published build renders reports for these scopes: " +
+          topicsOf("report--") + ". Run python run.py locally to render any other scope.");
+      }
+      inject("report--" + reportTopic + ".json", report, route);
+      if (body && body.top_k && body.top_k < (report.gaps || []).length) {
+        report = Object.assign({}, report, { gaps: report.gaps.slice(0, body.top_k) });
+      }
+      return report;
+    }
+    if (route === "/api/report/markdown") {
+      var markdownTopic = body && body.topic ? slug(body.topic) : "default";
+      var markdown = reportFilters ? null : await loadText("report--" + markdownTopic + ".md");
+      if (!markdown) throw notPrecomputed("that opportunity report (markdown)",
+        "The published build renders reports for the unfiltered demo scopes; year-filtered reports " +
+        "are computed live (python run.py).");
+      return markdown;
+    }
+
+    /* ------------------------------------------------------------- agent */
+    if (route === "/api/agent") {
+      return agentAnswer(body.question, index);
+    }
+    if (route === "/api/agent/stream") {
+      return agentStream(body.question, index);
+    }
+
+    /* -------------------------------------------------------------- plan */
+    if (route === "/api/plan") {
+      var dsl = (opts.method === "POST" ? (body && body.query) : params.q) || "";
+      var plan = planner(dsl);
+      if (!plan.ok) throw fail(422, plan.error);
+      plan.dsl = dsl;
+      plan.source = "browser";
+      plan.note = PLANNER_NOTE;
+      plan.static_snapshot = {
+        mode: "computed-in-browser",
+        note: "Planned in your browser by the JS port of the Kotlin/Python planner, over the same " +
+              "whitelists. The Cypher is generated, not executed: nothing here touches a database.",
+      };
+      return plan;
+    }
+
+    throw notPrecomputed("that endpoint (" + route + ")");
+  }
+
+  var GRAPH_REQUEST_DEFAULTS = { depth: 1, include_predicted: true, max_nodes: 260, max_edges: 800 };
+  var GRAPH_REQUEST_OPTIONAL = ["seeds", "query", "node_types", "rel_types", "year_min", "year_max", "focus"];
+
+  function resolveGraphRequest(raw) {
+    var source = raw || {};
+    var req = Object.assign({}, GRAPH_REQUEST_DEFAULTS);
+    GRAPH_REQUEST_OPTIONAL.forEach(function (key) {
+      if (source[key] !== null && source[key] !== undefined) req[key] = source[key];
+    });
+    ["depth", "include_predicted", "max_nodes", "max_edges"].forEach(function (key) {
+      if (source[key] !== null && source[key] !== undefined) req[key] = source[key];
+    });
+    return req;
+  }
+
+  /* the server echoes the request model with exclude_none: only the fields that were set. */
+  function echoGraphRequest(req) {
+    var out = { depth: req.depth, include_predicted: req.include_predicted,
+                max_nodes: req.max_nodes, max_edges: req.max_edges };
+    GRAPH_REQUEST_OPTIONAL.forEach(function (key) {
+      if (req[key] !== null && req[key] !== undefined) out[key] = req[key];
+    });
+    return out;
+  }
+
+  function safeJson(text) {
+    try { return JSON.parse(text); } catch (error) { return {}; }
+  }
+
+  function topicsOf(prefix) {
+    var files = Object.keys((state.index || {}).files || {});
+    return files.filter(function (name) { return name.indexOf(prefix) === 0; })
+      .map(function (name) { return name.replace(prefix, "").replace(".json", "").replace(".md", ""); })
+      .join(", ") || "(none)";
+  }
+
+  /* Mark a recorded payload with where it came from, so the UI can say so. */
+  function inject(name, payload, route) {
+    if (!payload || typeof payload !== "object") return payload;
+    var served = (state.served = state.served || {});
+    served[route] = name;
+    return payload;
+  }
+
+  function snapshotOf(name) {
+    var payload = state.datasets[name];
+    if (!payload) throw fail(500, "static snapshot is incomplete: data/" + name + " is missing");
+    return payload;
+  }
+
+  function statusPayload() {
     return {
-      depth: query.depth, fanout, seeds,
-      estimated_nodes_visited: Math.min(Math.round(raw), budget),
-      budget, strategy: query.text ? "fulltext -> expand" : "label scan -> rank",
-      safe: raw <= budget,
+      backend: "static-snapshot", requested_backend: "static-snapshot", degraded: false,
+      reason: "Published snapshot: the graph is recomputed in your browser from data/graph.json; " +
+              "gap scoring, reports and agent answers were recorded at build time.",
+      warnings: [], engine: "browser-snapshot", revision: 1, uptime_seconds: 0,
     };
   }
 
-  /* --------------------------------------------------------- browser glue -- */
+  function legend() {
+    var recorded = state.datasets["graph.json"] || {};
+    if (recorded.legend) return recorded.legend;
+    /* Fallback only: the shipped graph.json always carries the legend the API emitted. */
+    return {
+      node_colors: { Paper: "#4cc9f0", Author: "#b892ff", Topic: "#f4a261", Method: "#2ec4b6",
+                     Dataset: "#8ecae6", Institution: "#94a3b8", Claim: "#ff6b6b",
+                     Community: "#f9c74f", Metric: "#a3e635" },
+      rel_types: GRAPH_REL_TYPES,
+      predicted_rels: ["BELONGS_TO", "MEASURED_BY", "RELATED_TO", "STUDIES", "USES_DATASET", "USES_METHOD"],
+    };
+  }
+
+  /* store.neighbours(): one entry per incident edge, in store order. */
+  function neighboursRawExtended(nodeId) {
+    var model = graph();
+    return (model.adjacency.get(nodeId) || []).map(function (entry) {
+      var other = model.nodes.get(entry.other);
+      if (!other) return null;
+      return {
+        id: other.id, label: other.name, type: other.type,
+        rel: entry.edge.type, properties: entry.edge.props,
+      };
+    }).filter(Boolean);
+  }
+
+  /* ------------------------------------------------------------ agent glue */
+
+  async function agentAnswer(question, index) {
+    if (!question) throw fail(422, "question is required");
+    var match = matchQuestion(question, index);
+    if (match && match.score === 1) {
+      var recorded = await load("agent--" + slug(match.question) + ".json");
+      if (recorded) return Object.assign({}, recorded, {
+        static_snapshot: { mode: "recorded", question: match.question,
+          note: "This answer, with its reasoning trail, was produced by the research agent at build " +
+                "time and is served verbatim." },
+      });
+    }
+    if (match) {
+      var close = await load("agent--" + slug(match.question) + ".json");
+      if (close) {
+        return Object.assign({}, close, {
+          question: question,
+          static_snapshot: { mode: "recorded-nearest", question: match.question, similarity: round(match.score, 2),
+            note: "No build-time answer for this exact wording. Serving the closest recorded question " +
+                  "(“" + match.question + "”, token overlap " + round(match.score, 2) + ")." },
+        });
+      }
+    }
+    return offlineAnswer(question);
+  }
+
+  async function agentStream(question, index) {
+    var match = matchQuestion(question, index);
+    if (match) {
+      var trace = await loadText("agent-stream--" + slug(match.question) + ".txt");
+      if (trace) return trace;
+    }
+    var answer = await agentAnswer(question, index);
+    var frame = function (stage, detail) {
+      return "event: " + stage + "\ndata: " + JSON.stringify(Object.assign({ stage: stage }, detail)) + "\n\n";
+    };
+    return frame("intent", { detail: { intent: answer.intent, source: "browser-snapshot" } }) +
+      frame("plan", { detail: { engine: "nexus-js-planner", tools: (answer.tool_calls || []).map(function (call) { return call.tool; }) } }) +
+      (answer.tool_calls || []).map(function (call) { return frame("tool", { detail: call }); }).join("") +
+      frame("retrieval", { detail: answer.context || {} }) +
+      frame("synthesis", { detail: { engine: answer.answer_engine } }) +
+      frame("done", { detail: { ok: true } }) +
+      "event: answer\ndata: " + JSON.stringify(answer) + "\n\n";
+  }
+
+  /* -------------------------------------------------------------- lifecycle */
+
+  async function ready() {
+    if (state.graph) return true;
+    var results = await Promise.all([load("graph.json"), load("index.json")]);
+    require$_( "graph.json", results[0]);
+    buildGraph(results[0]);
+    state.index = results[1] || {};
+    inject("index.json", state.index, "/api/health");
+    await Promise.all([load("health.json"), load("dashboard.json"), load("conflicts.json"),
+                       load("predictions.json"), load("communities.json"), load("services.json")]);
+    return true;
+  }
+
+  function configure(options) {
+    Object.assign(state, options || {});
+    return state;
+  }
 
   function status() {
-    return { loaded: state.loaded, version: VERSION, graph: state.graph
-      ? { nodes: state.graph.nodes.size, edges: state.graph.edges.length } : null,
-      index: state.index, missing: state.missing };
+    return {
+      mode: "static", snapshot: state.snapshot, datasets: Object.keys(state.datasets),
+      missing: state.missing, served: state.served || {},
+      graph: state.graph ? { nodes: state.graph.nodes.size, edges: state.graph.edges.length } : null,
+    };
   }
 
-  const NEXUSStatic = {
-    VERSION, configure, load, api, status,
-    // exported for the node checks in scripts/check_site_data.mjs
-    graph: graphPayload, expand: expandPayload, neighbours, path: shortestPath,
-    papers: paperItems, nodeDetail, paperDetail: (id) => nodeDetail(id.startsWith("paper:") ? id : `paper:${id}`),
-    search: searchIndex, timeline: timelinePayload, explorer: explorerOverview,
-    plan: planQuery, agent: agentAnswer, stream: streamText, gaps: gapsPayload, report: reportPayload,
-    slug, contentTokens, jaccard,
-  };
-  root.NEXUSStatic = NEXUSStatic;
-  if (typeof module !== "undefined" && module.exports) module.exports = NEXUSStatic;
+  /* --------------------------------------------------------------- browser */
 
-  /* in the browser the static build has no server: answer /api/* from the snapshot */
-  if (typeof window !== "undefined" && window.NEXUS_MODE === "static") {
-    const nativeFetch = window.fetch ? window.fetch.bind(window) : null;
-    state.fetchImpl = nativeFetch;
-    window.fetch = async function (input, init) {
-      const url = typeof input === "string" ? input : (input && input.url) || "";
-      const options = init || (typeof input === "object" ? input : {});
-      if (!/^\/api\//.test(url)) return nativeFetch ? nativeFetch(input, init) : Promise.reject(new Error("no fetch"));
-      try {
-        if (/^\/api\/agent\/stream/.test(url)) {
-          const question = options.body ? JSON.parse(options.body).question : "";
-          const body = await streamText(question);
-          return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
-        }
-        const payload = await api(url, options);
-        const isText = typeof payload === "string";
+  function install() {
+    if (!root || !root.document) return;
+    var nativeFetch = root.fetch ? root.fetch.bind(root) : null;
+    state.fetcher = nativeFetch;
+    root.fetch = function (input, init) {
+      var url = typeof input === "string" ? input : (input && input.url) || "";
+      var options = init || (typeof input === "object" ? input : {});
+      if (url.indexOf("/api/") !== 0) return nativeFetch ? nativeFetch(input, init) : Promise.reject(new Error("no fetch"));
+      var method = (options.method || "GET").toUpperCase();
+      var body = options.body;
+      return api(url, { method: method, body: body }).then(function (payload) {
+        var isText = typeof payload === "string";
         return new Response(isText ? payload : JSON.stringify(payload), {
           status: 200,
           headers: { "content-type": isText ? "text/plain; charset=utf-8" : "application/json" },
         });
-      } catch (err) {
-        return new Response(JSON.stringify({ detail: err.detail || err.message || "static snapshot error" }),
-          { status: err.status || 500, headers: { "content-type": "application/json" } });
-      }
+      }).catch(function (error) {
+        return new Response(JSON.stringify({ detail: error.detail || error.message || "static snapshot error" }),
+          { status: error.status || 500, headers: { "content-type": "application/json" } });
+      });
     };
 
-    // service worker + the install button (this is what makes it an app)
-    window.addEventListener("load", () => {
-      if ("serviceWorker" in navigator && location.protocol !== "file:") {
-        navigator.serviceWorker.register("sw.js").catch(() => {});
-      }
-      const button = document.getElementById("install-app");
-      if (!button) return;
-      let prompt = null;
-      window.addEventListener("beforeinstallprompt", (event) => {
-        event.preventDefault();
-        prompt = event;
-        button.hidden = false;
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      root.addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function () { /* file:// or no SW support */ });
       });
-      button.addEventListener("click", async () => {
-        if (!prompt) return;
-        prompt.prompt();
-        await prompt.userChoice;
-        prompt = null;
+    }
+
+    var deferred = null;
+    var button = document.getElementById("install-app");
+    root.addEventListener("beforeinstallprompt", function (event) {
+      event.preventDefault();
+      deferred = event;
+      if (button) button.hidden = false;
+    });
+    if (button) {
+      button.addEventListener("click", function () {
+        if (!deferred) {
+          alert("Use your browser's menu → “Add to Home Screen” (iOS Safari) or “Install app” (desktop).");
+          return;
+        }
+        deferred.prompt();
+        deferred = null;
         button.hidden = true;
       });
-      window.addEventListener("appinstalled", () => { button.hidden = true; });
-    });
+      if (matchMedia("(display-mode: standalone)").matches) button.hidden = true;
+    }
+    var close = document.getElementById("static-banner-close");
+    if (close) {
+      close.addEventListener("click", function () {
+        document.getElementById("static-banner").hidden = true;
+      });
+    }
+    markStaticStatus();
   }
-})(typeof window !== "undefined" ? window : globalThis);
+
+  function markStaticStatus() {
+    var text = document.getElementById("status-text");
+    if (text && /connecting|static/i.test(text.textContent || "")) {
+      text.textContent = "static snapshot";
+    }
+    var dot = document.getElementById("status-dot");
+    if (dot) dot.title = "Published snapshot: computed in your browser + build-time engine output";
+  }
+
+  var NEXUSStatic = {
+    api: api, configure: configure, status: status, install: install, ready: ready,
+    slug: slug, planner: planner,
+  };
+  NEXUSStatic.snapshot = function () { return state.snapshot; };
+  NEXUSStatic.search = function (text, labels, limit) { return search(text, labels, limit); };
+  NEXUSStatic.graph = function (request) { return subgraph(request); };
+  NEXUSStatic.nodeDetail = function (id) { return nodeDetail(id); };
+  NEXUSStatic.paperDetail = function (id) { return paperDetail(id); };
+  NEXUSStatic.listNodes = function (query) { return listNodes(query); };
+  NEXUSStatic.neighbours = function (id) { return neighboursRawExtended(id); };
+  NEXUSStatic.path = function (source, target, hops) { return shortestPath(source, target, hops); };
+  NEXUSStatic.timeline = function (topic) { return timeline(topic); };
+  NEXUSStatic.explorer = function (query) { return explorerOverview(query); };
+  NEXUSStatic.expand = function (ids, rels, limit) { return expand(ids, rels, limit); };
+
+  root.NEXUSStatic = NEXUSStatic;
+  if (typeof module !== "undefined" && module.exports) module.exports = NEXUSStatic;
+
+  /* Browser default: the published page sets #nexus-snapshot and calls install(). */
+  if (root && root.document) {
+    var boot = root.document.getElementById("nexus-snapshot");
+    if (boot) {
+      try { state.snapshot = JSON.parse(boot.textContent || "{}"); } catch (error) { state.snapshot = {}; }
+      install();
+    }
+  }
+})(typeof globalThis !== "undefined" ? globalThis : this);

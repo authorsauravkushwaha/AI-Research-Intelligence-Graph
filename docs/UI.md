@@ -105,7 +105,9 @@ only where the numbers come from:
 * **computed in the browser** on every interaction: the graph subgraph, expand-on-demand,
   neighbours, shortest paths, paper and node detail, search, the paper list, the timeline and
   the explorer. `frontend/assets/site.js` implements those endpoints over `data/graph.json`,
-  and `scripts/compare_site_data.py` proves they return what the live API returns (38/38);
+  and `scripts/check_site_data.mjs` replays every answer the engines recorded for the same
+  scopes through the shipped file and diffs them field by field — 60 checks over 20 581 values,
+  gated in CI before the deploy;
 * **replayed from build-time engine output**: gap scopes and scores, opportunity reports and
   agent answers. Their panels show a `static snapshot` chip, and the payload carries
   `static_snapshot.mode: "recorded"` plus the note that the numbers were computed at build

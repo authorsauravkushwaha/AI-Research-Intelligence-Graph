@@ -6,15 +6,18 @@ name: pages
 #   1. build the static site with the real engines (scripts/build_site.py drives the
 #      FastAPI app in-process, so graph.json, the gap scores, the agent answers and the
 #      reports are produced by the same code the API serves);
-#   2. verify it — the Node checker replays every route the UI calls and diffs the
-#      Kotlin planner, then the Python comparator asks the live app the same questions
-#      and requires the same answers;
+#   2. verify it — the Node checker boots the *published* assets/site.js against the
+#      freshly built snapshot and replays every recorded engine answer through it, so a
+#      build that would answer differently from the API never reaches a reader;
 #   3. upload the verified folder as the Pages artefact.
 # A failing verification fails the deploy: the published site is never an unverified one.
 
 on:
+  # `main` is the published site. The working branch is listed too so that a change to the
+  # front end, the builder or the checker is verified by the same pipeline that publishes it
+  # before it is merged — same artefact either way, newest push wins.
   push:
-    branches: ["main"]
+    branches: ["main", "arena/a214f69c-ai-research-intelligence-graph"]
   workflow_dispatch:
 
 permissions:
@@ -58,16 +61,14 @@ jobs:
       - name: Build the static site (same engines as the API)
         run: python scripts/build_site.py --out site
 
-      - name: Verify the static layer in Node (routes, planner parity, recordings)
-        run: node scripts/check_site_data.mjs --out "$RUNNER_TEMP/js.json"
-
-      - name: Verify the static layer against the live engines
-        run: python scripts/compare_site_data.py "$RUNNER_TEMP/js.json"
+      - name: Verify the snapshot — replay every recorded engine answer through the shipped site.js
+        run: node scripts/check_site_data.mjs --site site --json "$RUNNER_TEMP/site-checks.json"
 
       - name: Summarise the artefact
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
+          import os
           import pathlib
 
           site = pathlib.Path("site")
@@ -79,7 +80,12 @@ jobs:
           print(f"- size: {size:.1f} MiB in {len(files)} files")
           print(f"- recorded API payloads: {len(list((site / 'data').iterdir()))}")
           print(f"- graph snapshot: {graph['counts']['nodes']} nodes / {graph['counts']['edges']} edges")
-          print("- checks: route replay + Kotlin planner parity, 38 payload diffs against the live API")
+          checks = json.loads((pathlib.Path(os.environ["RUNNER_TEMP"]) / "site-checks.json").read_text())
+          summary = checks["summary"]
+          print(f"- verification: {summary['total'] - summary['failed']}/{summary['total']} checks passed "
+                f"({summary['compared']} values compared against the engine's own answers)")
+          for note in checks.get("notes", [])[:3]:
+              print(f"- {note}")
           PY
 
       - name: Configure Pages (enables the Pages site on the first run)

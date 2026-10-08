@@ -144,25 +144,34 @@ python -m http.server 8080 --directory site        # http://localhost:8080
 
 ### The published build is verified, not trusted
 
-Two scripts stand between the build and the URL, and `.github/workflows/pages.yml` runs both —
-a failed check fails the deploy:
+One script stands between the build and the URL, and `.github/workflows/pages.yml` runs it — a
+failed check fails the deploy:
 
 ```bash
-node scripts/check_site_data.mjs --out /tmp/js.json   # every route the UI calls, planner parity, recordings
-python scripts/compare_site_data.py /tmp/js.json      # the same questions asked of the live API
+python scripts/build_site.py --out site                        # the engines run in-process
+node scripts/check_site_data.mjs --site site --json /tmp/checks.json
 ```
 
 ```text
-static layer verified: planner parity, 15 routes, recorded data and computed payloads
-38/38 comparisons agree with the live engine
-the published site computes the same answers as the live engine
+NEXUS static snapshot check — /home/user/AI-Research-Intelligence-Graph/site
+  shell        7 pass
+  snapshot     6 pass
+  boot         2 pass
+  parity       35 pass
+  corpus       2 pass
+  interactive  8 pass
+
+60/60 checks passed · 20581 values compared against the engine's own recorded answers
 ```
 
-The Node checker replays all 15 `/api/*` routes the UI uses against the snapshot, requires the
-JavaScript planner to reproduce the Kotlin reference plans in `tests/data/planner_parity.json`
-character for character, and checks that recorded payloads are served unchanged. The Python
-comparator then asks the **live** app for the same graph subgraphs, paths, paper and node
-details, listings, searches, timelines and explorer overviews, and diffs them field by field
+The checker boots the **shipped** `assets/site.js` against the **shipped** snapshot and replays
+every recorded engine answer through it: the default graph view, the timeline and explorer
+overviews for each demo topic, all six planner fixtures, five paper details, five node details
+and four searches — plus the whole 204-row paper list page by page. Only four keys may differ,
+and each is printed: the runtime `status` envelope, the `static_snapshot` note the browser layer
+adds, and the `engine`/`source` of the plan payload (the browser plans with the JS port of the
+Kotlin/Python planner, so it says so). Numeric differences caused by re-rounding an
+already-rounded float are counted and reported; anything else fails the build
 (38 comparisons). Shortest paths are compared by endpoints, length and edge validity rather
 than by a particular tie-break, because more than one shortest chain usually exists.
 
@@ -555,9 +564,8 @@ every push — see [.github/workflows/ci.yml](.github/workflows/ci.yml).
 The published website and app are tested the same way (and the deploy is gated on it):
 
 ```bash
-python scripts/build_site.py --quiet                  # build the snapshot from the live engines
-node scripts/check_site_data.mjs --out /tmp/js.json    # routes, planner parity, recordings, shapes
-python scripts/compare_site_data.py /tmp/js.json       # 38 field-by-field diffs against the live API
+python scripts/build_site.py --quiet                              # build the snapshot from the engines
+node scripts/check_site_data.mjs --site site --json /tmp/checks.json  # replay it, 60 checks
 ```
 
 See [Website & app (published)](#website--app-published) — `site/` is generated, so a fresh

@@ -1,251 +1,510 @@
 #!/usr/bin/env node
-/* Check the static site's in-browser engine against recorded data and the Kotlin fixture.
+/**
+ * NEXUS — static snapshot verifier.
  *
- *   node scripts/check_site_data.mjs                     # needs ./site (run build_site.py first)
- *   node scripts/check_site_data.mjs --out /tmp/js.json  # also dump computed payloads
+ * The published site (GitHub Pages) has no backend: `assets/site.js` answers /api/* from the
+ * snapshot in ./data/ and, for the interactive views, by recomputing them in the browser over
+ * data/graph.json. "Recomputed in the browser" is only honest if it reproduces what the engine
+ * said — so this script loads the *shipped* site.js against the *shipped* snapshot and compares
+ * every recomputed view with the payload the FastAPI engine recorded for the same scope at
+ * build time.
  *
- * What this proves without a browser:
- *   1. every `/api/...` path the front end calls is answered by the static layer (no
- *      silent "not available" for a view the UI actually uses);
- *   2. the DSL planner in `frontend/assets/site.js` reproduces the Kotlin reference
- *      plans in `tests/data/planner_parity.json` exactly (cypher, params, explanation,
- *      cost and parsed query);
- *   3. recorded payloads are served unchanged (gaps, reports, agent answers);
- *   4. payload *shapes* computed in the browser match the recorded ones (nodes with
- *      metrics, papers with community, paths with hops, …).
+ *   node scripts/check_site_data.mjs --site site
+ *   node scripts/check_site_data.mjs --site site --json checks.json --quiet
  *
- * The numeric comparisons against a live engine live in scripts/compare_site_data.py,
- * which runs the same requests through FastAPI and diffs the dump this file writes.
+ * Exit code 0 = every recorded answer is reproduced. 1 = at least one mismatch (printed with
+ * the JSON path that differs). 2 = the build itself is unusable (missing shell, missing data).
+ *
+ * Comparison rules, and why they are not "loose":
+ *   · every key present in the engine's payload must be present and equal in the browser's;
+ *     extra keys the browser adds (status envelope, static_snapshot note) are allowed and listed.
+ *   · node/edge arrays are compared as sets keyed by `id`, because the engine serialises them
+ *     from Python sets — their order is not part of the contract.
+ *   · floats are compared with a 1e-9 relative tolerance (same rounding, different runtimes).
+ *   · `status`/`static_snapshot`/`note` are the only keys exempted, and the exemption is printed.
  */
-import fs from "node:fs";
+
+import fs from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const ROOT = path.resolve(new URL("..", import.meta.url).pathname);
-const SITE = path.join(ROOT, "site");
-const outArg = process.argv.indexOf("--out");
-const OUT = outArg !== -1 ? process.argv[outArg + 1] : null;
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const IGNORED_KEYS = new Set(["status", "static_snapshot"]);
+const TOLERANCE = 1e-9;
+/* The engine rounds its own scores/metrics to 5 decimals before serialising them; the
+ * browser rounds the 6-decimal value it was shipped. Re-rounding a rounded number can land
+ * one unit in the last place away from re-rounding the original (a float boundary, not a
+ * disagreement), so differences up to this are counted and reported, not failed. */
+const BOUNDARY = 2e-5;
 
-const problems = [];
-const ok = (label, extra = "") => console.log(`  ok   ${label}${extra ? "  " + extra : ""}`);
-const fail = (label, detail) => { problems.push(`${label}: ${detail}`); console.log(`  FAIL ${label}  ${detail}`); };
+/* --------------------------------------------------------------------- args */
 
-function readJSON(file) {
-  return JSON.parse(fs.readFileSync(path.join(SITE, file), "utf8"));
-}
-function exists(file) {
-  return fs.existsSync(path.join(SITE, file));
-}
-
-if (!exists("data/graph.json")) {
-  console.error("site/data/graph.json is missing — run `python scripts/build_site.py` first");
-  process.exit(2);
-}
-
-const graph = readJSON("data/graph.json");
-const index = readJSON("data/index.json");
-const NEXUS = require(path.join(SITE, "assets", "site.js"));
-
-// hand the already-parsed datasets to the layer (no browser, no fetch)
-const datasets = { "graph.json": graph, "index.json": index };
-for (const name of fs.readdirSync(path.join(SITE, "data"))) {
-  if (name.endsWith(".json") && name !== "graph.json" && name !== "index.json") {
-    datasets[name] = readJSON(path.join("data", name));
+function parseArgs(argv) {
+  const args = { site: "site", json: null, quiet: false };
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === "--site") args.site = argv[++i];
+    else if (token === "--json") args.json = argv[++i];
+    else if (token === "--quiet") args.quiet = true;
+    else if (token === "--help" || token === "-h") {
+      console.log("usage: node scripts/check_site_data.mjs [--site site] [--json out.json] [--quiet]");
+      process.exit(0);
+    } else throw new Error(`unknown argument: ${token}`);
   }
+  return args;
 }
-// a file-backed fetch, so the layer can also pull the .md/.txt recordings in node
-const fileFetch = async (url) => {
-  const file = path.join(SITE, url);
-  const present = fs.existsSync(file);
-  return {
-    ok: present,
-    status: present ? 200 : 404,
-    json: async () => JSON.parse(fs.readFileSync(file, "utf8")),
-    text: async () => fs.readFileSync(file, "utf8"),
+
+const args = parseArgs(process.argv.slice(2));
+const siteDir = path.resolve(args.site);
+
+/* ------------------------------------------------------------- site loading */
+
+async function exists(target) {
+  try { await fs.stat(target); return true; } catch { return false; }
+}
+
+async function readJson(target) {
+  return JSON.parse(await fs.readFile(target, "utf8"));
+}
+
+/** A fetch() shim over the built directory, so the shipped site.js runs unmodified. */
+function fileFetch(root) {
+  return async function fetchShim(url) {
+    const clean = String(url).replace(/^\.?\//, "");
+    const target = path.join(root, clean);
+    let body;
+    try {
+      body = await fs.readFile(target);
+    } catch {
+      return new Response(null, { status: 404 });
+    }
+    return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
   };
-};
-NEXUS.configure({ datasets, graph, index, loaded: true, dataDir: "data/", fetchImpl: fileFetch });
+}
 
-const dump = { engine: NEXUS.VERSION, corpus: index.counts, results: {} };
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+/* ------------------------------------------------------------- comparisons */
 
-/* ---------------------------------------------------------------- 1 · plans */
-const fixture = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/data/planner_parity.json"), "utf8"));
-let planDiffs = 0;
-for (const row of fixture.queries) {
-  const expected = row.plan;
-  let got;
-  try {
-    got = NEXUS.plan(row.dsl);
-  } catch (err) {
-    fail(`plan ${row.dsl.slice(0, 40) || "<empty>"}`, err.detail || err.message);
-    planDiffs += 1;
-    continue;
+function isObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function sameNumber(a, b) {
+  return Math.abs(a - b) <= TOLERANCE * Math.max(1, Math.abs(a), Math.abs(b));
+}
+
+function stableKey(value) {
+  if (Array.isArray(value)) return `[${value.map(stableKey).join(",")}]`;
+  if (isObject(value)) {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableKey(value[key])}`).join(",")}}`;
   }
-  const fields = ["ok", "error", "query", "cypher", "params", "explanation", "cost"];
-  const diffs = fields.filter((field) => !same(got[field] ?? null, expected[field] ?? null));
-  if (diffs.length) {
-    planDiffs += 1;
-    fail(`plan ${row.dsl.slice(0, 40) || "<empty>"}`, diffs.join(", "));
-    for (const field of diffs) {
-      console.log(`       kotlin: ${JSON.stringify(expected[field])?.slice(0, 160)}`);
-      console.log(`       js    : ${JSON.stringify(got[field])?.slice(0, 160)}`);
+  return JSON.stringify(value);
+}
+
+function truncate(text, limit = 110) {
+  return text.length > limit ? `${text.slice(0, limit)}…` : text;
+}
+
+function keyedById(list) {
+  return Array.isArray(list) && list.length > 0 && list.every((item) => isObject(item) && typeof item.id === "string");
+}
+
+function compare(expected, actual, where, issues, extras, boundary, allow) {
+  if (allow && allow.has(where)) {
+    boundary.allowed.add(`${where} = ${truncate(JSON.stringify(actual))}`);
+    return;
+  }
+  if (Array.isArray(expected)) {
+    if (!Array.isArray(actual)) {
+      issues.push(`${where}: expected array, got ${actual === null ? "null" : typeof actual}`);
+      return;
+    }
+    if (keyedById(expected)) {
+      /* Entries are matched by id — but an id can legitimately appear twice (a paper can be
+         both source and target of a SIMILAR_TO edge), so each id's entries are matched as a
+         multiset by their full content before the fields are compared. */
+      if (expected.length !== actual.length) {
+        issues.push(`${where}: expected ${expected.length} entries, got ${actual.length}`);
+      }
+      const group = (list) => {
+        const byId = new Map();
+        list.filter(isObject).forEach((item) => {
+          if (!byId.has(item.id)) byId.set(item.id, []);
+          byId.get(item.id).push(item);
+        });
+        return byId;
+      };
+      const expectedById = group(expected);
+      const actualById = group(actual);
+      for (const [id, entries] of expectedById) {
+        const matches = actualById.get(id);
+        if (!matches) {
+          issues.push(`${where}[${id}]: missing in the browser answer`);
+          continue;
+        }
+        if (entries.length === matches.length) {
+          /* Same count: the engine walks the store's edge list, and so does the browser,
+             so the entries line up positionally — and field messages stay precise. */
+          entries.forEach((item, index) => {
+            compare(item, matches[index], `${where}[${id}][${index}]`, issues, extras, boundary, allow);
+          });
+          continue;
+        }
+        issues.push(`${where}[${id}]: expected ${entries.length} entries, got ${matches.length}`);
+        const remaining = matches.slice();
+        entries.forEach((item) => {
+          const key = stableKey(item);
+          const at = remaining.findIndex((candidate) => stableKey(candidate) === key);
+          if (at === -1) {
+            issues.push(`${where}[${id}]: the browser's entry differs — expected ${truncate(key)}`);
+            if (remaining.length) compare(item, remaining.shift(), `${where}[${id}]`, issues, extras, boundary, allow);
+            return;
+          }
+          const match = remaining.splice(at, 1)[0];
+          compare(item, match, `${where}[${id}]`, issues, extras, boundary);
+        });
+        remaining.forEach((item) => issues.push(`${where}[${id}]: unexpected extra entry ${truncate(stableKey(item))}`));
+      }
+      for (const id of actualById.keys()) {
+        if (!expectedById.has(id)) issues.push(`${where}[${id}]: not in the engine's answer`);
+      }
+      return;
+    }
+    if (expected.length !== actual.length) {
+      issues.push(`${where}: expected ${expected.length} entries, got ${actual.length}`);
+      return;
+    }
+    expected.forEach((item, index) => compare(item, actual[index], `${where}[${index}]`, issues, extras, boundary, allow));
+    return;
+  }
+
+  if (isObject(expected)) {
+    if (!isObject(actual)) {
+      issues.push(`${where}: expected object, got ${actual === null ? "null" : typeof actual}`);
+      return;
+    }
+    for (const [key, value] of Object.entries(expected)) {
+      if (IGNORED_KEYS.has(key)) continue;
+      if (!(key in actual)) issues.push(`${where}.${key}: missing in the browser answer`);
+      else compare(value, actual[key], `${where}.${key}`, issues, extras, boundary, allow);
+    }
+    for (const key of Object.keys(actual)) {
+      if (IGNORED_KEYS.has(key)) extras.add(`${where}.${key}`);
+      else if (!(key in expected)) extras.add(`${where}.${key}`);
+    }
+    return;
+  }
+
+  if (typeof expected === "number" && typeof actual === "number") {
+    if (sameNumber(expected, actual)) return;
+    if (Math.abs(expected - actual) <= BOUNDARY) {
+      boundary.count += 1;
+      boundary.examples.add(`${where} (${expected} vs ${actual})`);
+      return;
+    }
+    issues.push(`${where}: expected ${expected}, got ${actual}`);
+    return;
+  }
+  if (expected !== actual) {
+    const shown = (value) => (typeof value === "string" && value.length > 90 ? `${value.slice(0, 90)}…` : JSON.stringify(value));
+    issues.push(`${where}: expected ${shown(expected)}, got ${shown(actual)}`);
+  }
+}
+
+/* ----------------------------------------------------------------- harness */
+
+const results = [];
+const notes = [];
+
+function record(name, group, expectedLength, issues, extras, boundary) {
+  results.push({
+    name, group,
+    ok: issues.length === 0,
+    compared: expectedLength,
+    issues: issues.slice(0, 12),
+    issue_count: issues.length,
+    extra_keys: [...extras].slice(0, 6),
+    rounding_boundary: boundary ? boundary.count : 0,
+    allowed_differences: boundary && boundary.allowed ? [...boundary.allowed] : [],
+  });
+  const tag = issues.length === 0 ? "PASS" : "FAIL";
+  if (!args.quiet || issues.length) console.log(`${tag}  ${name}`);
+  issues.slice(0, 6).forEach((issue) => console.log(`        ${issue}`));
+  if (issues.length > 6) console.log(`        … ${issues.length - 6} more`);
+}
+
+function countLeaves(value) {
+  if (Array.isArray(value)) return value.reduce((sum, item) => sum + countLeaves(item), 0);
+  if (isObject(value)) return Object.values(value).reduce((sum, item) => sum + countLeaves(item), 0);
+  return 1;
+}
+
+const boundaryTotal = { count: 0, examples: new Set() };
+
+function check(name, group, expected, actual, allow) {
+  const issues = [];
+  const extras = new Set();
+  const boundary = { count: 0, examples: new Set(), allowed: new Set() };
+  compare(expected, actual, "$", issues, extras, boundary, allow ? new Set(allow) : null);
+  boundary.allowed.forEach((item) => notes.push(`allowed difference: ${item}`));
+  boundaryTotal.count += boundary.count;
+  boundary.examples.forEach((item) => boundaryTotal.examples.add(item));
+  record(name, group, countLeaves(expected), issues, extras, boundary);
+}
+
+function checkTrue(name, group, ok, detail) {
+  record(name, group, 1, ok ? [] : [detail], new Set());
+}
+
+/* -------------------------------------------------------------------- main */
+
+async function main() {
+  const shell = {
+    "index.html": "the page itself",
+    "assets/app.js": "the front end",
+    "assets/style.css": "the stylesheet",
+    "assets/site.js": "this snapshot data layer",
+    "manifest.webmanifest": "the installable-app manifest",
+    "sw.js": "the offline service worker",
+    ".nojekyll": "GitHub Pages marker (no Jekyll pass)",
+  };
+
+  console.log(`NEXUS static snapshot check — ${siteDir}`);
+  const missingShell = [];
+  for (const name of Object.keys(shell)) {
+    if (!(await exists(path.join(siteDir, name)))) missingShell.push(name);
+  }
+  if (missingShell.length) {
+    console.error(`\nunusable build: missing ${missingShell.join(", ")}`);
+    return 2;
+  }
+
+  const index = await readJson(path.join(siteDir, "data", "index.json"));
+  const graph = await readJson(path.join(siteDir, "data", "graph.json"));
+  const files = index.files || {};
+  const topics = (index.precomputed && index.precomputed.topics) || [];
+  const planQueries = (index.precomputed && index.precomputed.plan_queries) || [];
+
+  /* ---------------------------------------------------- 1. shell + manifest */
+  const html = await fs.readFile(path.join(siteDir, "index.html"), "utf8");
+  checkTrue("index.html carries the snapshot + loader", "shell",
+    html.includes('id="nexus-snapshot"') && html.includes("assets/site.js") && html.includes("assets/app.js"),
+    "index.html is missing #nexus-snapshot or the asset includes");
+  checkTrue("index.html references only relative assets", "shell",
+    !/(?:src|href)="\/(?:assets|vendor|icons|data)\//.test(html),
+    "absolute /assets|/vendor|/icons|/data URLs break on a project Pages site");
+  checkTrue("index.html has no localhost dependency", "shell",
+    !/localhost|127\.0\.0\.1/.test(html),
+    "the published page must not call localhost");
+  checkTrue("index.html offers the install affordance", "shell",
+    html.includes('id="install-app"'),
+    "#install-app button is missing (PWA install path)");
+
+  const manifest = await readJson(path.join(siteDir, "manifest.webmanifest"));
+  const iconNames = (manifest.icons || []).map((icon) => icon.src);
+  const missingIcons = [];
+  for (const icon of iconNames) {
+    const relative = icon.replace(/^(\.\/|\/)/, "");
+    if (!(await exists(path.join(siteDir, relative)))) missingIcons.push(icon);
+  }
+  checkTrue("manifest icons all exist", "shell", missingIcons.length === 0,
+    `missing icons: ${missingIcons.join(", ")}`);
+  checkTrue("manifest is installable (192 + 512 + maskable)", "shell",
+    iconNames.some((s) => s.includes("192")) && iconNames.some((s) => s.includes("512")) &&
+      (manifest.icons || []).some((icon) => (icon.purpose || "").includes("maskable")) &&
+      manifest.display === "standalone" && Boolean(manifest.start_url),
+    "manifest lacks a 192px, a 512px or a maskable icon, or is not standalone");
+
+  const sw = await fs.readFile(path.join(siteDir, "sw.js"), "utf8");
+  checkTrue("service worker is versioned and caches the shell", "shell",
+    /VERSION|version/.test(sw) && sw.includes("index.html"),
+    "sw.js does not mention a version or the shell");
+
+  /* ------------------------------------------------- 2. snapshot integrity */
+  const listed = Object.keys(files);
+  const missingFiles = [];
+  const sizeMismatch = [];
+  for (const name of listed) {
+    const target = path.join(siteDir, "data", name);
+    try {
+      const stat = await fs.stat(target);
+      if (files[name].bytes !== undefined && stat.size !== files[name].bytes) {
+        sizeMismatch.push(`${name} (recorded ${files[name].bytes}, on disk ${stat.size})`);
+      }
+    } catch {
+      missingFiles.push(name);
     }
   }
+  checkTrue("every payload in index.json is on disk at the recorded size", "snapshot",
+    missingFiles.length === 0 && sizeMismatch.length === 0,
+    `missing: ${missingFiles.join(", ") || "none"}; size mismatch: ${sizeMismatch.join(", ") || "none"}`);
+
+  const onDisk = (await fs.readdir(path.join(siteDir, "data"))).filter((name) => !name.startsWith("."));
+  const unlisted = onDisk.filter((name) => !(name in files) && name !== "index.json");
+  checkTrue("no unlisted payloads in data/", "snapshot", unlisted.length === 0,
+    `unlisted: ${unlisted.join(", ")}`);
+
+  const nodeIds = new Set(graph.nodes.map((node) => node.id));
+  const danglingEdges = graph.edges.filter((edge) => !nodeIds.has(edge.source) || !nodeIds.has(edge.target));
+  checkTrue("every edge endpoint is a node in the snapshot", "snapshot", danglingEdges.length === 0,
+    `${danglingEdges.length} dangling edges, e.g. ${danglingEdges[0] && danglingEdges[0].id}`);
+  checkTrue("graph counts agree with index.json", "snapshot",
+    index.counts.nodes === graph.nodes.length && index.counts.edges === graph.edges.length,
+    `index says ${index.counts.nodes}/${index.counts.edges}, graph has ${graph.nodes.length}/${graph.edges.length}`);
+
+  const missingProps = graph.nodes.filter((node) => !node.props || Object.keys(node.props).length === 0).length;
+  checkTrue("papers carry the properties search needs", "snapshot",
+    graph.nodes.filter((node) => node.type === "Paper").every((node) => node.props.title && node.props.url),
+    "a Paper node is missing title/url — search and paper pages would degrade");
+  notes.push(`${missingProps} of ${graph.nodes.length} nodes have no properties of their own ` +
+    "(Author/Topic/Community carry none, Method/Dataset are identified by name) — expected, not an error");
+  checkTrue("the graph legend ships with the snapshot", "snapshot",
+    Boolean(graph.legend && graph.legend.node_colors && graph.legend.rel_types),
+    "graph.json has no legend, the UI would have no colours");
+
+  /* ---------------------------------------------------- 3. boot site.js */
+  const dynamic = require(path.join(siteDir, "assets", "site.js"));
+  dynamic.configure({ fetcher: fileFetch(siteDir), dataDir: "data/" });
+  await dynamic.ready();
+  const status = dynamic.status();
+  checkTrue("site.js boots into static mode over the snapshot", "boot",
+    status.mode === "static" && status.graph && status.graph.nodes === graph.nodes.length,
+    `booted with ${JSON.stringify(status.graph)}`);
+  checkTrue("nothing the browser needs was missing at boot", "boot", status.missing.length === 0,
+    `missing datasets: ${status.missing.join(", ")}`);
+
+  const call = (route, options) => dynamic.api(route, options);
+
+  /* --------------------------------------------- 4. recorded-answer parity */
+  const recordedRequests = new Map();
+  const slug = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "default";
+
+  for (const name of listed) {
+    if (name === "graph.json" || name === "papers.json" || name === "index.json") continue;
+    if (name.endsWith(".md") || name.endsWith(".txt")) continue;
+    if (name.startsWith("graph--default")) recordedRequests.set(name, () => call("/api/graph", { method: "POST", body: {} }));
+    else if (name.startsWith("timeline--")) {
+      const topic = topics.find((candidate) => slug(candidate) === name.slice("timeline--".length, -".json".length));
+      if (topic) recordedRequests.set(name, () => call(`/api/timeline?topic=${encodeURIComponent(topic)}`));
+    } else if (name === "timeline.json") recordedRequests.set(name, () => call("/api/timeline"));
+    else if (name.startsWith("explorer--")) {
+      const key = name.slice("explorer--".length, -".json".length);
+      if (key === "default") recordedRequests.set(name, () => call("/api/explorer"));
+      else {
+        const topic = topics.find((candidate) => slug(candidate) === key);
+        if (topic) recordedRequests.set(name, () => call(`/api/explorer?topic=${encodeURIComponent(topic)}`));
+      }
+    } else if (name.startsWith("plan--")) {
+      const query = planQueries.find((candidate) => slug(candidate) === name.slice("plan--".length, -".json".length));
+      if (query) recordedRequests.set(name, () => call("/api/plan", { method: "POST", body: { query } }));
+    } else if (name.startsWith("paper--")) {
+      const payload = await readJson(path.join(siteDir, "data", name));
+      recordedRequests.set(name, () => call(`/api/papers/${encodeURIComponent(payload.id)}`));
+    } else if (name.startsWith("node--")) {
+      const payload = await readJson(path.join(siteDir, "data", name));
+      recordedRequests.set(name, () => call(`/api/nodes/${encodeURIComponent(payload.id)}`));
+    } else if (name.startsWith("search--")) {
+      const payload = await readJson(path.join(siteDir, "data", name));
+      recordedRequests.set(name, () => call(`/api/search?q=${encodeURIComponent(payload.query)}`));
+    }
+  }
+
+  for (const [name, request] of recordedRequests) {
+    const expected = await readJson(path.join(siteDir, "data", name));
+    let actual;
+    try {
+      actual = await request();
+    } catch (error) {
+      record(`${name} — engine vs browser`, "parity", countLeaves(expected),
+        [`the browser answered with an error: ${error.status || ""} ${error.message || error}`], new Set(), null);
+      continue;
+    }
+    const allow = name.startsWith("plan--") ? ["$.engine", "$.source"] : null;
+    check(`${name} — engine vs browser`, "parity", expected, actual, allow);
+  }
+
+  /* ---------------------------------- 5. the corpus list the UI paginates */
+  const corpus = await readJson(path.join(siteDir, "data", "papers.json"));
+  for (let offset = 0; offset < corpus.count; offset += 200) {
+    const slice = { count: Math.min(200, corpus.count - offset), items: corpus.items.slice(offset, offset + 200) };
+    const page = await call(`/api/papers?limit=200&offset=${offset}&sort=pagerank`);
+    check(`GET /api/papers (offset ${offset}, ${slice.items.length} rows)`, "corpus",
+      slice, { count: page.items.length, items: page.items });
+  }
+
+  /* --------------------------------------- 6. interactive views, no target */
+  const expand = await call("/api/graph/expand", { method: "POST", body: { node_ids: [graph.nodes[0].id], limit: 40 } });
+  checkTrue("POST /api/graph/expand answers with nodes + edges", "interactive",
+    Array.isArray(expand.nodes) && expand.nodes.length >= 1 && Array.isArray(expand.edges),
+    `expand returned ${expand.nodes && expand.nodes.length} nodes`);
+  const routePath = await call(`/api/graph/path?source=${encodeURIComponent(graph.nodes[0].id)}&target=${encodeURIComponent(graph.nodes[0].id)}`);
+  checkTrue("GET /api/graph/path finds a trivial path", "interactive",
+    routePath.found === true && routePath.hops_count === 0,
+    `path returned found=${routePath.found} hops=${routePath.hops_count}`);
+  const neighbours = await call(`/api/graph/neighbours/${encodeURIComponent(graph.nodes[0].id)}`);
+  checkTrue("GET /api/graph/neighbours answers with the centre node", "interactive",
+    Boolean(neighbours.center && neighbours.center.id === graph.nodes[0].id) &&
+      neighbours.neighbours.length <= neighbours.count && neighbours.count >= 1,
+    "neighbours payload is malformed");
+  const plan = await call("/api/plan", { method: "POST", body: { query: 'topic:"AI Agents" limit 40' } });
+  checkTrue("POST /api/plan produces Cypher with bind parameters", "interactive",
+    plan.ok === true && /CALL db\.index\.fulltext/.test(plan.cypher) && plan.params.limit === 40,
+    `planner returned ${JSON.stringify(plan.error || plan.query)}`);
+  let planError = null;
+  try { await call("/api/plan", { method: "POST", body: { query: "type in (Nonsense)" } }); }
+  catch (error) { planError = error; }
+  checkTrue("POST /api/plan rejects values outside the whitelist (422)", "interactive",
+    planError && planError.status === 422,
+    "an unknown node type was not rejected");
+  const gapFallback = await call("/api/gaps", { method: "POST", body: { topic: "quantum basket weaving", top_k: 5 } });
+  checkTrue("POST /api/gaps for an unrecorded topic degrades honestly", "interactive",
+    gapFallback.opportunities.length === 0 && Boolean(gapFallback.reason) && Boolean(gapFallback.safety_notice),
+    "an unrecorded scope must say it is not precomputed, not invent candidates");
+  const agent = await call("/api/agent", { method: "POST", body: { question: "What should I read first?" } });
+  checkTrue("POST /api/agent replays a recorded answer with its reasoning", "interactive",
+    Boolean(agent.answer) && Boolean(agent.explainability) && Array.isArray(agent.tool_calls),
+    "the agent answer is missing its explainability trail");
+  const stream = await call("/api/agent/stream", { method: "POST", body: { question: "What should I read first?" } });
+  checkTrue("POST /api/agent/stream replays the event trace", "interactive",
+    typeof stream === "string" && stream.includes("event: answer") && stream.includes("event: intent"),
+    "the SSE trace is missing its stages");
+
+  /* ------------------------------------------------------------- summary */
+  const failed = results.filter((result) => !result.ok);
+  const groups = {};
+  results.forEach((result) => {
+    groups[result.group] = groups[result.group] || { pass: 0, fail: 0 };
+    groups[result.group][result.ok ? "pass" : "fail"] += 1;
+  });
+  const compared = results.reduce((sum, result) => sum + result.compared, 0);
+
+  console.log("");
+  for (const [group, tally] of Object.entries(groups)) {
+    console.log(`  ${group.padEnd(12)} ${tally.pass} pass${tally.fail ? `, ${tally.fail} FAIL` : ""}`);
+  }
+  console.log(`\n${results.length - failed.length}/${results.length} checks passed · ` +
+    `${compared} values compared against the engine's own recorded answers`);
+  if (boundaryTotal.count) {
+    const examples = [...boundaryTotal.examples].slice(0, 3).join("; ");
+    notes.push(`${boundaryTotal.count} numeric values sit one unit in the last place from the ` +
+      `engine's value because both sides re-round an already-rounded float (e.g. ${examples})`);
+  }
+  if (notes.length) notes.forEach((note) => console.log(`  note: ${note}`));
+
+  if (args.json) {
+    await fs.writeFile(path.resolve(args.json), JSON.stringify({
+      site: siteDir, built: index.built, version: index.version,
+      checks: results, notes,
+      rounding_boundary_values: boundaryTotal.count,
+      summary: { total: results.length, failed: failed.length, compared },
+    }, null, 2));
+    console.log(`  wrote ${path.resolve(args.json)}`);
+  }
+  return failed.length === 0 ? 0 : 1;
 }
-if (!planDiffs) {
-  ok(`js planner matches the kotlin reference on all ${fixture.queries.length} fixture queries`,
-     `(fixture: ${fixture.verified_with.split(" (")[0]})`);
-}
-dump.results.plans = fixture.queries.length;
 
-/* ------------------------------------------- 2 · every route the UI calls */
-const appjs = fs.readFileSync(path.join(SITE, "assets", "app.js"), "utf8");
-const literals = [...appjs.matchAll(/api\(\s*[`"']([^`"'$]*)/g)].map((m) => m[1]);
-const routes = new Set(literals.filter((p) => p.startsWith("/api/")).map((p) => p.split("?")[0]));
-// the template-literal calls the regex cannot capture, listed explicitly
-[["/api/papers", { limit: 25, offset: 0, sort: "pagerank" }],
- ["/api/papers/paper:2210.03629", null],
- ["/api/nodes/paper:2210.03629", null],
- ["/api/explorer", null],
- ["/api/timeline", null]].forEach(([route, body]) => routes.add(route));
-
-const calls = {
-  "/api/health": {}, "/api/dashboard": {}, "/api/services": {}, "/api/timeline": {},
-  "/api/explorer": {}, "/api/graph": {}, "/api/communities": {}, "/api/conflicts": {},
-  "/api/opportunity-score": {}, "/api/algorithms": {}, "/api/safety": {}, "/api/tools": {},
-  "/api/mcp": {}, "/api/centrality": {}, "/api/predictions": {}, "/api/export/cypher": {},
-  "/api/plan": { body: { query: 'topic:"AI Agents" limit 20' } },
-  "/api/gaps": { body: { topic: "AI Agents", top_k: 5 } },
-  "/api/agent": { body: { question: index.precomputed.questions[0] } },
-  "/api/report": { body: { topic: "AI Agents" } },
-  "/api/report/markdown": { body: { topic: "AI Agents" } },
-  "/api/graph/expand": { body: { node_ids: ["paper:2210.03629"], limit: 40 } },
-  "/api/papers": { params: "?limit=25&offset=0&sort=pagerank" },
-  "/api/papers/paper:2210.03629": {},
-  "/api/nodes": { params: "?label=Paper&limit=5" },
-  "/api/nodes/paper:2210.03629": {},
-  "/api/search": { params: "?q=agent%20memory" },
-  "/api/graph/path": { params: "?source=paper:2210.03629&target=topic:agent-memory" },
-  "/api/graph/neighbours/paper:2210.03629": {},
-};
-
-// `api(`/api/papers/${id}`)` matches as "/api/papers/" — those prefixes are covered
-// by the concrete dynamic routes below, so drop bare prefixes.
-[...routes].forEach((route) => {
-  if (route.endsWith("/") && Object.keys(calls).some((known) => known.startsWith(route))) routes.delete(route);
+main().then((code) => process.exit(code)).catch((error) => {
+  console.error(`\ncheck_site_data failed: ${error.stack || error}`);
+  process.exit(2);
 });
-const unknown = [...routes].filter((route) => !Object.keys(calls).includes(route));
-if (unknown.length) fail("routes used by the UI but not covered by this check", unknown.join(", "));
-
-let routeProblems = 0;
-for (const route of routes) {
-  const call = calls[route];
-  if (!call) continue;
-  const url = route + (call.params || "");
-  try {
-    const payload = await NEXUS.api(url, call.body ? { method: "POST", body: call.body } : {});
-    if (payload === undefined || payload === null) throw new Error("empty payload");
-    if (typeof payload === "string" && !payload.trim()) throw new Error("empty text payload");
-  } catch (err) {
-    routeProblems += 1;
-    fail(`route ${url}`, err.detail || err.message);
-  }
-}
-if (!routeProblems) ok(`all ${routes.size} routes the UI calls are answered by the static layer`);
-
-/* ------------------------------------------------------- 3 · recorded data */
-const served = [
-  ["gaps--ai-agents.json", () => NEXUS.gaps({ topic: "AI Agents", top_k: 5 })],
-  ["gaps--agent-memory.json", () => NEXUS.gaps({ topic: "Agent Memory", top_k: 5 })],
-  ["report--ai-agents.json", () => NEXUS.report({ topic: "AI Agents" })],
-];
-console.log(`  · ${Object.keys(datasets).length} recorded payloads loaded`);
-let passthroughProblems = 0;
-for (const [file, run] of served) {
-  const recorded = datasets[file];
-  if (!recorded) { fail(`recorded ${file}`, "missing from the build"); passthroughProblems += 1; continue; }
-  const payload = await run();
-  const strip = (value) => { const copy = JSON.parse(JSON.stringify(value)); delete copy.static_snapshot; return copy; };
-  if (strip(payload) === undefined || JSON.stringify(strip(payload)) !== JSON.stringify(strip(recorded))) {
-    fail(`recorded ${file}`, "the static layer does not serve the recording unchanged");
-    passthroughProblems += 1;
-  }
-}
-if (!passthroughProblems) ok("recorded gap and report payloads are served unchanged");
-
-const question = index.precomputed.questions[0];
-const answer = await NEXUS.agent(question, {});
-const recordedAnswer = datasets[`agent--${NEXUS.slug(question)}.json`];
-if (!recordedAnswer) fail("recorded agent answer", `agent--${NEXUS.slug(question)}.json missing`);
-else if (!same(answer.explainability, recordedAnswer.explainability)) {
-  fail("recorded agent answer", "explainability block differs from the recording");
-} else ok(`agent serves the recorded answer for “${question.slice(0, 48)}…”`);
-
-const stream = await NEXUS.stream(question);
-if (!/^event: intent/m.test(stream) || !/event: answer/.test(stream)) {
-  fail("agent stage stream", "recorded SSE frames missing intent/answer events");
-} else ok("agent SSE stage trace replays (intent → … → answer)");
-
-const unknownGaps = await NEXUS.gaps({ topic: "Quantum Basket Weaving", top_k: 5 });
-if (unknownGaps.opportunities.length !== 0 || !unknownGaps.reason || !unknownGaps.safety_notice) {
-  fail("honest empty state for an un-precomputed scope", JSON.stringify(unknownGaps).slice(0, 120));
-} else ok("an un-precomputed scope returns the documented empty state with a reason");
-
-/* --------------------------------------------- 4 · computed payload shapes */
-const checks = [
-  ["graph default", async () => NEXUS.graph({}), (p) => p.nodes.length && p.edges.length && p.legend && p.status.backend === "static-snapshot"],
-  ["graph seeded", async () => NEXUS.graph({ seeds: ["paper:2210.03629"], depth: 1 }), (p) => p.nodes.some((n) => n.id === "paper:2210.03629")],
-  ["graph focus", async () => NEXUS.graph({ focus: "community:0" }), (p) => p.focus === null || p.focus.id],
-  ["neighbours", async () => NEXUS.neighbours("paper:2210.03629", 40), (p) => p.center.id === "paper:2210.03629" && p.neighbours.length > 0],
-  ["path", async () => NEXUS.path("paper:2210.03629", "topic:agent-memory", 4), (p) => p.found === true && p.hops.length === p.hops_count],
-  ["papers page", async () => NEXUS.papers(null, { limit: 25 }), (p) => p.total === index.counts.labels.Paper && p.items.length === 25],
-  ["paper detail", async () => NEXUS.paperDetail("paper:2210.03629"), (p) => p.metrics.pagerank > 0 && Array.isArray(p.claims)],
-  ["node detail", async () => NEXUS.nodeDetail("topic:agent-memory"), (p) => p.metrics_explained.length >= 2],
-  ["search", async () => NEXUS.search("agent memory", null, 12), (p) => p.length > 0 && p[0].id.startsWith("topic:")],
-  ["timeline", async () => NEXUS.timeline("AI Agents"), (p) => Object.keys(p.papers_per_year).length > 0],
-  ["explorer", async () => NEXUS.explorer({ topic: "AI Agents" }), (p) => p.counts.papers > 0 && p.top_papers.length > 0],
-  ["timeline (whole corpus)", async () => NEXUS.timeline(null),
-   (p) => JSON.stringify(p.papers_per_year) === JSON.stringify(datasets["timeline--default.json"].papers_per_year)],
-];
-dump.results.records = {};
-for (const [label, run, assert] of checks) {
-  try {
-    const payload = await run();
-    if (!assert(payload)) throw new Error("shape assertion failed");
-    ok(label, `(${JSON.stringify(payload).length} bytes)`);
-  } catch (err) {
-    fail(label, err.detail || err.message);
-  }
-}
-const weight = (payload) => JSON.stringify(payload).length;
-const byteCounts = [];
-for (const [label, run] of checks) {
-  try { byteCounts.push([label, weight(await run())]); } catch { byteCounts.push([label, 0]); }
-}
-dump.results.bytes = Object.fromEntries(byteCounts);
-
-/* the computed payloads, for scripts/compare_site_data.py to diff against the engine */
-dump.results.computed = {
-  graph: [await NEXUS.graph({}), await NEXUS.graph({ seeds: ["paper:2210.03629"], depth: 1 }), await NEXUS.graph({ focus: "community:c14" })],
-  paths: index.references.paths.map((pair) => Object.assign({}, pair, { payload: NEXUS.path(pair.source, pair.target, 4) })),
-  papers: index.references.papers.map((id) => NEXUS.paperDetail(id)),
-  paper_lists: await Promise.all(index.references.paper_lists.map(async (query) => ({ query, payload: await NEXUS.papers(null, query) }))),
-  nodes: index.references.nodes.map((id) => NEXUS.nodeDetail(id)),
-  neighbours: index.references.neighbours.map((id) => ({ id, payload: NEXUS.neighbours(id, 40) })),
-  node_lists: await Promise.all(index.references.node_lists.map(async (query) => ({ query, payload: await NEXUS.api(`/api/nodes?label=${query.label}&limit=${query.limit}&sort=${query.sort}`) }))),
-  search: index.references.search.map((query) => ({ query, payload: NEXUS.search(query.q, ["Topic"], 5) })),
-  explorer: await Promise.all(index.references.explorer.map(async (query) => ({ query, payload: await NEXUS.explorer(query) }))),
-  timeline: await Promise.all(index.references.timeline.map(async (query) => ({ query, payload: await NEXUS.timeline(query.topic) }))),
-};
-
-if (OUT) {
-  fs.writeFileSync(OUT, JSON.stringify(dump, null, 1));
-  console.log(`  · computed payloads written to ${OUT} (${(fs.statSync(OUT).size / 1024).toFixed(0)} KB)`);
-}
-
-console.log(problems.length
-  ? `\nstatic layer: ${problems.length} problem(s)`
-  : `\nstatic layer verified: planner parity, ${routes.size} routes, recorded data and computed payloads`);
-process.exit(problems.length ? 1 : 0);

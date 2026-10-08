@@ -350,7 +350,9 @@ const Graph = {
       $("#plan-engine").textContent = "planning…";
       try {
         const p = await api("/api/plan", { method: "POST", body: { query: dsl } });
-        const badge = p.source === "sidecar" ? "Kotlin planner (JVM sidecar)" : "Python planner (sidecar offline)";
+        const badge = p.source === "sidecar" ? "Kotlin planner (JVM sidecar)"
+          : p.source === "browser" ? "JS planner (static snapshot)"
+          : "Python planner (sidecar offline)";
         $("#plan-engine").innerHTML = `<span class="pill ${p.source === "sidecar" ? "green" : "amber"}">${esc(p.engine)}</span> ${esc(badge)}`;
         $("#plan-cypher").textContent = p.cypher;
         const params = Object.entries(p.params || {}).map(([k, v]) => `$${k} = ${JSON.stringify(v)}`).join(" · ");
