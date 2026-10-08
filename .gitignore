@@ -1,0 +1,30 @@
+# secrets and environment
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+
+# native build output (rebuilt with `make`)
+native/build/
+
+# node (only used to vendor front-end libraries)
+node_modules/
+package-lock.json
+*.tgz
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

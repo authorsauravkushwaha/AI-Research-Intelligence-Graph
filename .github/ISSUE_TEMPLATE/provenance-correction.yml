@@ -1,0 +1,45 @@
+name: Provenance correction
+description: A record, summary, tag or claim in the demo corpus is wrong or unverifiable
+title: "[provenance] "
+labels: ["provenance", "data-integrity"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Provenance errors are the highest-priority fixes in this repository. Thank you for
+        checking the data rather than trusting it.
+  - type: input
+    id: record
+    attributes:
+      label: Which record or output?
+      description: The arXiv id, node id, or the endpoint that produced the text.
+      placeholder: "arXiv 2310.08560 / topic:agent-memory / POST /api/gaps"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong?
+      description: Quote the exact text and say what it should be, with a source if you have one.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - Incorrect title, year or author
+        - Summary is inaccurate or reads as a quotation
+        - Topic / method / dataset tag is wrong
+        - Citation lineage edge is wrong
+        - Claim text misrepresents the paper
+        - Missing provenance label (record should be marked unverified)
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I checked the paper at its arXiv URL before filing this
+          required: true

@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NEXUS — AI Research Intelligence Graph</title>
+<meta name="description" content="A knowledge-graph research intelligence platform: graph algorithms, GraphRAG, a transparent gap finder and an explainable research agent." />
+<link rel="stylesheet" href="/assets/style.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='12' fill='none' stroke='%2361e4ff' stroke-width='2'/><circle cx='16' cy='16' r='3.5' fill='%2361e4ff'/></svg>" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+      <circle cx="16" cy="16" r="13" fill="none" stroke="url(#g)" stroke-width="1.6"/>
+      <circle cx="16" cy="16" r="4" fill="#61e4ff"/>
+      <circle cx="27" cy="9" r="2.6" fill="#a78bfa"/><circle cx="6" cy="22" r="2.2" fill="#34d399"/>
+      <line x1="16" y1="16" x2="27" y2="9" stroke="#a78bfa" stroke-width="1"/><line x1="16" y1="16" x2="6" y2="22" stroke="#34d399" stroke-width="1"/>
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#61e4ff"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
+    </svg>
+    <div>
+      <h1>NEXUS</h1>
+      <p>AI Research Intelligence Graph</p>
+    </div>
+  </div>
+
+  <nav id="nav" aria-label="Sections">
+    <a href="#home" data-view="home">Home</a>
+    <a href="#explorer" data-view="explorer">Research Explorer</a>
+    <a href="#graph" data-view="graph">Knowledge Graph</a>
+    <a href="#gaps" data-view="gaps" class="killer">Find Research Gaps</a>
+    <a href="#papers" data-view="papers">Paper Explorer</a>
+    <a href="#agent" data-view="agent">AI Research Agent</a>
+    <a href="#report" data-view="report">Opportunity Report</a>
+  </nav>
+
+  <div class="status" id="status" title="Engine status">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">connecting…</span>
+  </div>
+</header>
+
+<main>
+  <!-- ==================================================== HOME ============ -->
+  <section id="view-home" class="view">
+    <div id="health-banner" class="banner" hidden></div>
+
+    <div class="hero">
+      <div>
+        <h2>A knowledge graph of AI research — with the algorithms shown</h2>
+        <p>
+          NEXUS builds a graph of papers, topics, methods, datasets and claims, then runs
+          graph algorithms over it: similarity, community detection, centrality and link
+          prediction feed a transparent research-gap engine and a GraphRAG agent. Every
+          number is traceable to the records that produced it.
+        </p>
+        <div class="hero-actions">
+          <a class="btn primary" href="#gaps">Find research gaps</a>
+          <a class="btn" href="#graph">Open the 3D graph</a>
+          <a class="btn ghost" href="/docs" target="_blank" rel="noreferrer">API docs</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <h3>Prototype, not oracle</h3>
+        <p>
+          The NEXUS Opportunity Score is a <strong>prototype heuristic</strong>
+          (30% community separation, 25% semantic similarity, 20% relationship sparsity,
+          15% research activity, 10% bridge potential). Results are hypotheses derived
+          from a curated demo corpus — verify them at the sources.
+        </p>
+        <p class="muted" id="hero-engine"></p>
+      </div>
+    </div>
+
+    <div class="cards" id="home-cards"></div>
+
+    <div class="grid two">
+      <div class="panel">
+        <h3>Papers per year <span class="muted" id="timeline-note"></span></h3>
+        <canvas id="chart-years" height="180"></canvas>
+      </div>
+      <div class="panel">
+        <h3>Research communities <span class="muted">(Louvain)</span></h3>
+        <div id="home-communities" class="stack"></div>
+      </div>
+    </div>
+
+    <div class="grid two">
+      <div class="panel">
+        <h3>Emerging topics <span class="muted">papers in 2023+ vs earlier</span></h3>
+        <div id="home-emerging" class="stack"></div>
+      </div>
+      <div class="panel">
+        <h3>Top candidate opportunities <span class="muted">prototype heuristic</span></h3>
+        <div id="home-opportunities" class="stack"></div>
+      </div>
+    </div>
+
+    <div class="grid two">
+      <div class="panel">
+        <h3>Structural bridges <span class="muted">betweenness centrality</span></h3>
+        <div id="home-bridges" class="stack small"></div>
+      </div>
+      <div class="panel">
+        <h3>Claim tensions <span class="muted">AI-detected hypotheses</span></h3>
+        <div id="home-conflicts" class="stack small"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="corpus-panel">
+      <h3>Corpus &amp; provenance</h3>
+      <div id="home-provenance" class="provenance"></div>
+    </div>
+  </section>
+
+  <!-- ================================================ EXPLORER ============ -->
+  <section id="view-explorer" class="view">
+    <div class="toolbar">
+      <input id="explorer-topic" placeholder="Topic filter, e.g. Agent Memory" />
+      <input id="explorer-field" placeholder="Field, e.g. Agent Memory" />
+      <input id="explorer-year-min" type="number" placeholder="from" min="1991" max="2026" />
+      <input id="explorer-year-max" type="number" placeholder="to" min="1991" max="2026" />
+      <button class="btn primary" id="explorer-run">Analyse scope</button>
+    </div>
+    <p class="muted" id="explorer-status"></p>
+
+    <div class="grid two">
+      <div class="panel">
+        <h3>Activity over time</h3>
+        <canvas id="chart-explorer-years" height="170"></canvas>
+      </div>
+      <div class="panel">
+        <h3>Scope summary</h3>
+        <div id="explorer-metrics" class="kv"></div>
+      </div>
+    </div>
+
+    <div class="grid three">
+      <div class="panel"><h3>Influential papers <span class="muted">PageRank</span></h3><div id="explorer-papers" class="stack small"></div></div>
+      <div class="panel"><h3>Central topics</h3><div id="explorer-topics" class="stack small"></div></div>
+      <div class="panel"><h3>Shared methods <span class="muted">degree</span></h3><div id="explorer-methods" class="stack small"></div></div>
+    </div>
+
+    <div class="panel">
+      <h3>Communities in this scope</h3>
+      <div id="explorer-communities" class="stack"></div>
+    </div>
+  </section>
+
+  <!-- =================================================== GRAPH ============ -->
+  <section id="view-graph" class="view graph-view">
+    <div class="graph-wrap">
+      <div id="graph-canvas" role="img" aria-label="Interactive 3D knowledge graph of the analysed research corpus"></div>
+      <div class="graph-overlay left">
+        <div class="panel compact">
+          <h3>3D knowledge graph</h3>
+          <div class="field-row">
+            <input id="graph-search" placeholder="Search a paper, topic, method…" />
+            <button class="btn primary small" id="graph-focus">Focus</button>
+          </div>
+          <div class="field-row">
+            <select id="graph-node-types" multiple size="6" aria-label="Node types">
+              <option value="Paper" selected>Papers</option>
+              <option value="Topic" selected>Topics</option>
+              <option value="Community" selected>Communities</option>
+              <option value="Method">Methods</option>
+              <option value="Dataset">Datasets</option>
+              <option value="Author">Authors</option>
+              <option value="Claim">Claims</option>
+            </select>
+            <select id="graph-rel-types" multiple size="6" aria-label="Relationship types">
+              <option value="STUDIES" selected>STUDIES</option>
+              <option value="USES_METHOD" selected>USES_METHOD</option>
+              <option value="BELONGS_TO" selected>BELONGS_TO</option>
+              <option value="CITES">CITES</option>
+              <option value="SIMILAR_TO">SIMILAR_TO</option>
+              <option value="RELATED_TO">RELATED_TO</option>
+              <option value="SUPPORTS">SUPPORTS</option>
+              <option value="CONTRADICTS">CONTRADICTS</option>
+              <option value="PREDICTED_LINK">PREDICTED_LINK (hypothesis)</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <label class="check"><input type="checkbox" id="graph-predicted" checked /> show predicted links</label>
+          </div>
+          <div class="field-row">
+            <button class="btn small" id="graph-load">Load view</button>
+            <button class="btn small ghost" id="graph-expand">Expand selection</button>
+            <button class="btn small ghost" id="graph-reset">Reset camera</button>
+          </div>
+          <p class="muted tiny" id="graph-stats">—</p>
+        </div>
+      </div>
+      <div class="graph-overlay right">
+        <div class="panel compact" id="graph-detail">
+          <h3>Node inspector</h3>
+          <p class="muted">Click a node in the graph to see the metrics behind it — explained, not just displayed.</p>
+        </div>
+      </div>
+      <div class="legend" id="graph-legend"></div>
+    </div>
+  </section>
+
+  <!-- ==================================================== GAPS ============ -->
+  <section id="view-gaps" class="view">
+    <div class="panel killer-panel">
+      <div class="killer-head">
+        <h2>Find Research Gaps</h2>
+        <p>
+          Searches the graph for concept pairs that are <em>semantically close but structurally
+          weakly connected</em> — then shows every component of the score, the papers behind it
+          and the tensions inside the clusters.
+        </p>
+      </div>
+      <div class="toolbar">
+        <input id="gaps-topic" value="AI Agents" placeholder="Topic, e.g. AI Agents" />
+        <input id="gaps-year-min" type="number" placeholder="from" min="1991" max="2026" />
+        <input id="gaps-year-max" type="number" placeholder="to" min="1991" max="2026" />
+        <select id="gaps-topk">
+          <option value="3">top 3</option><option value="5" selected>top 5</option><option value="8">top 8</option>
+        </select>
+        <button class="btn primary" id="gaps-run">Find gaps</button>
+      </div>
+      <p class="muted" id="gaps-status" role="status" aria-live="polite">Ready.</p>
+      <div id="gaps-safety" class="safety" hidden></div>
+    </div>
+
+    <div class="grid two" id="gaps-overview" hidden>
+      <div class="panel">
+        <h3>How the score is computed</h3>
+        <div id="gaps-formula" class="stack small"></div>
+      </div>
+      <div class="panel">
+        <h3>Scope &amp; method</h3>
+        <div id="gaps-scope" class="kv"></div>
+        <div id="gaps-method" class="stack tiny muted"></div>
+      </div>
+    </div>
+
+    <div id="gaps-results" class="stack"></div>
+  </section>
+
+  <!-- ================================================== PAPERS ============ -->
+  <section id="view-papers" class="view">
+    <div class="toolbar">
+      <input id="papers-q" placeholder="Search titles, topics, claims… (e.g. memory)" />
+      <select id="papers-sort">
+        <option value="pagerank">sort: influence (PageRank)</option>
+        <option value="betweenness">sort: bridges (betweenness)</option>
+        <option value="degree">sort: connections</option>
+        <option value="year">sort: newest</option>
+        <option value="name">sort: title</option>
+      </select>
+      <input id="papers-from" type="number" placeholder="year from" min="1991" max="2026" />
+      <input id="papers-to" type="number" placeholder="year to" min="1991" max="2026" />
+      <button class="btn primary" id="papers-run">Search</button>
+    </div>
+    <p class="muted" id="papers-status" role="status" aria-live="polite"></p>
+    <div class="panel table-wrap">
+      <table class="table" id="papers-table">
+        <thead><tr><th>#</th><th>Paper</th><th>Year</th><th>Field</th><th>PageRank</th><th>Betweenness</th><th>Links</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="pager">
+        <button class="btn small ghost" id="papers-prev">← prev</button>
+        <span class="muted" id="papers-page">—</span>
+        <button class="btn small ghost" id="papers-next">next →</button>
+      </div>
+    </div>
+    <div class="panel" id="paper-detail" hidden></div>
+  </section>
+
+  <!-- =================================================== AGENT ============ -->
+  <section id="view-agent" class="view">
+    <div class="panel">
+      <h3>Ask the research agent</h3>
+      <p class="muted">
+        The agent plans tool calls over the graph, retrieves a GraphRAG context, then answers
+        with the evidence attached. Without an LLM key it answers from graph evidence with
+        deterministic templates — the numbers and citations stay real either way.
+      </p>
+      <div class="toolbar">
+        <input id="agent-q" placeholder="e.g. What are the most important research gaps in AI agents?" />
+        <button class="btn primary" id="agent-run">Ask</button>
+      </div>
+      <div class="chips" id="agent-suggestions"></div>
+      <div id="agent-stages" class="stages"></div>
+      <div id="agent-answer" class="answer"></div>
+    </div>
+  </section>
+
+  <!-- ================================================== REPORT ============ -->
+  <section id="view-report" class="view">
+    <div class="panel">
+      <h3>Research Opportunity Report</h3>
+      <p class="muted">
+        Assembles the same evidence the other views show into a reviewable document
+        (markdown / JSON). Deterministic by default; if an LLM key is configured, its
+        executive summary is labelled as such.
+      </p>
+      <div class="toolbar">
+        <input id="report-topic" value="AI Agents" placeholder="Topic" />
+        <input id="report-year-min" type="number" placeholder="from" min="1991" max="2026" />
+        <input id="report-year-max" type="number" placeholder="to" min="1991" max="2026" />
+        <select id="report-topk"><option>3</option><option selected>5</option><option>8</option></select>
+        <button class="btn primary" id="report-run">Generate</button>
+        <button class="btn small ghost" id="report-download-md">Download .md</button>
+        <button class="btn small ghost" id="report-download-json">Download .json</button>
+        <button class="btn small ghost" id="report-export-cypher">Export Cypher</button>
+      </div>
+      <p class="muted" id="report-status" role="status" aria-live="polite"></p>
+      <article id="report-body" class="markdown"></article>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>NEXUS v1.0 · graph-native research intelligence · <a href="/api/health">/api/health</a> · <a href="/docs">/docs</a></span>
+  <span class="muted" id="footer-safety"></span>
+</footer>
+
+<div id="toast" class="toast" hidden></div>
+
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>

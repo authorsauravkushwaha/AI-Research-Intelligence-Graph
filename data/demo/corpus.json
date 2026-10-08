@@ -1,0 +1,7202 @@
+{
+ "title": "NEXUS demonstration corpus",
+ "corpus_version": "1.0.0",
+ "generated_at": "2026-10-08T15:27:17+00:00",
+ "provenance": {
+  "ids_and_titles": "real arXiv records, collected from public arXiv listings and community indexes",
+  "summaries": "editorial scope notes written for this prototype; never quotations",
+  "authors": "carried only when verified, otherwise author_status='not-collected'",
+  "citations": "curated high-confidence lineage subset, not a full citation graph",
+  "claims": "editorial distillations of reported findings, labelled per record",
+  "notice": "Demonstration corpus: real paper metadata with editorial annotations. Verify every record at its arXiv URL before citing it."
+ },
+ "papers": [
+  {
+   "arxiv_id": "2501.04227",
+   "title": "Agent Laboratory: Using LLM Agents as Research Assistants",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2501.04227",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Search",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Orchestrates research assistants as agents with structured roles and artefacts, evaluating how far an automated pipeline can carry a machine-learning research project.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2501.05707",
+   "title": "Multiagent Finetuning: Self Improvement with Diverse Reasoning Chains",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2501.05707",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Finetuning",
+    "Self-Improvement",
+    "Reasoning"
+   ],
+   "methods": [
+    "Fine-Tuning",
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Fine-tunes models on their own diverse reasoning chains and merges the results, showing multi- agent style gains can be distilled back into a single model.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2501.06322",
+   "title": "Multi-Agent Collaboration Mechanisms: A Survey of LLMs",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2501.06322",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Coordination",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Surveys multi-agent collaboration mechanisms along axes of structure, strategy, coordination and communication, and compares when collaboration actually pays off.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2501.13956",
+   "title": "Zep: A Temporal Knowledge Graph Architecture for Agent Memory",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2501.13956",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory",
+    "Knowledge Graphs",
+    "Temporal Reasoning"
+   ],
+   "methods": [
+    "Knowledge Graphs",
+    "Agentic Memory",
+    "Retrieval-Augmented Generation"
+   ],
+   "datasets": [
+    "Long-term conversation benchmarks"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Builds memory for agentic search that compresses past reasoning trajectories, so later steps can reuse earlier conclusions without repeating retrieval.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "verified"
+  },
+  {
+   "arxiv_id": "2501.14249",
+   "title": "Humanity's Last Exam",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2501.14249",
+   "field": "Agent Systems",
+   "topics": [
+    "Human-AI Interaction"
+   ],
+   "methods": [],
+   "datasets": [
+    "Humanity's Last Exam"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.06776",
+   "title": "Towards Internet-Scale Training For Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.06776",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.08586",
+   "title": "Commercial LLM Agents Are Already Vulnerable to Simple Yet Dangerous Attacks",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.08586",
+   "field": "Safety and Security",
+   "topics": [
+    "Security"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.08599",
+   "title": "SPeCtrum: A Grounded Framework for Multidimensional Identity Representation in LLM-Based Agent",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.08599",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.11127",
+   "title": "G-Safeguard: A Topology-Guided Security Lens and Treatment on LLM-based Multi-agent Systems",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.11127",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Distributed Systems",
+    "Security",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Argues that the topology of a multi-agent network determines its exposure to adversarial infection, and proposes graph-based treatment to contain propagation.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.11404",
+   "title": "ToolCoder: A Systematic Code-Empowered Tool Learning Framework for Large Language Models",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.11404",
+   "field": "Software Agents",
+   "topics": [
+    "Software Agents",
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.12110",
+   "title": "A-MEM: Agentic Memory for LLM Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.12110",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Presents an agentic memory system in which the agent maintains an evolving network of linked notes, deciding for itself what to store and how to connect it, rather than using a fixed memory schema.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.12575",
+   "title": "DemonAgent: Dynamically Encrypted Multi-Backdoor Implantation Attack on LLM-based Agent",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.12575",
+   "field": "Safety and Security",
+   "topics": [
+    "Planning",
+    "Security"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.13172",
+   "title": "Unveiling Privacy Risks in LLM Agent Memory",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.13172",
+   "field": "Agent Memory",
+   "topics": [
+    "Privacy",
+    "Agent Memory"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Shows that agent memory systems can leak private user information through benign-looking retrieval queries, and evaluates defensive memory designs.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.14276",
+   "title": "STeCa: Step-level Trajectory Calibration for LLM Agent Learning",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.14276",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2502.14529",
+   "title": "CORBA: Contagious Recursive Blocking Attacks on Multi-Agent Systems Based on Large Language Models",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2502.14529",
+   "field": "Safety and Security",
+   "topics": [
+    "Security",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2503.01935",
+   "title": "MultiAgentBench: Evaluating the Collaboration and Competition of LLM agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2503.01935",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Coordination",
+    "Evaluation",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [
+    "AgentBench",
+    "MultiAgentBench"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Introduces a benchmark that scores LLM agents on collaboration and competition, with milestones, coordination metrics and a graph-based evaluation of multi-agent interaction.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2503.02197",
+   "title": "ATLaS: Agent Tuning via Learning Critical Steps",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2503.02197",
+   "field": "Agent Architectures",
+   "topics": [
+    "Finetuning",
+    "Self-Reflection"
+   ],
+   "methods": [
+    "Fine-Tuning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2503.03459",
+   "title": "Unified Mind Model: Reimagining Autonomous Agents in the LLM Era",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2503.03459",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2503.13657",
+   "title": "Why Do Multi-Agent LLM Systems Fail?",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2503.13657",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Analyses a large set of multi-agent LLM system traces and finds failures cluster into recurring categories, with coordination and verification gaps dominating over raw model capability.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2503.15478",
+   "title": "SWEET-RL: Training Multi-Turn LLM Agents on Collaborative Reasoning Tasks",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2503.15478",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Coordination",
+    "Reasoning"
+   ],
+   "methods": [
+    "Reinforcement Learning",
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2503.18102",
+   "title": "AgentRxiv: Towards Collaborative Autonomous Research",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2503.18102",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Coordination",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Search",
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2503.24047",
+   "title": "Towards Scientific Intelligence: A Survey of LLM-based Scientific Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2503.24047",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Surveys LLM-based scientific agents and argues that tool integration and verification, not model scale, are the binding constraints for scientific use.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2504.07461",
+   "title": "Achilles Heel of Distributed Multi-Agent Systems",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2504.07461",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Distributed Systems",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2504.15585",
+   "title": "A Comprehensive Survey in LLM(-Agent) Full Stack Safety: Data, Training and Deployment",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2504.15585",
+   "field": "Safety and Security",
+   "topics": [
+    "Safety"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2504.16736",
+   "title": "A Survey of AI Agent Protocols",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2504.16736",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Agent Protocols"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Surveys emerging protocols for agent interoperability, comparing message formats, capability discovery and trust assumptions across proposed standards such as MCP and A2A.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2504.18243",
+   "title": "DualRAG: A Dual-Process Approach to Integrate Reasoning and Retrieval for Multi-Hop Question Answering",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2504.18243",
+   "field": "Retrieval and RAG",
+   "topics": [
+    "Retrieval-Augmented Generation",
+    "Reasoning"
+   ],
+   "methods": [
+    "Retrieval-Augmented Generation"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2504.21034",
+   "title": "SAGA: A Security Architecture for Governing AI Agentic Systems",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2504.21034",
+   "field": "Safety and Security",
+   "topics": [
+    "Security"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2505.04997",
+   "title": "Foam-Agent: Towards Automated Intelligent CFD Workflows",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2505.04997",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Builds a domain agent for computational fluid dynamics that automates simulation setup and analysis, an example of agents applied to specialist engineering workflows.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2505.11717",
+   "title": "WebInject: Prompt Injection Attack to Web Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2505.11717",
+   "field": "Safety and Security",
+   "topics": [
+    "Web Agents",
+    "Security"
+   ],
+   "methods": [
+    "Prompt Engineering"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2505.13044",
+   "title": "Cognitive AI Memory: A Framework for More Human-like Memory in LLMs",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2505.13044",
+   "field": "Agent Memory",
+   "topics": [
+    "Human-AI Interaction",
+    "Agent Memory"
+   ],
+   "methods": [
+    "Agentic Memory"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Proposes a memory framework intended to mirror human memory organisation, with separate episodic and semantic stores and a consolidation routine, to reduce context overflow in long conversations.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2505.16067",
+   "title": "How Memory Management Impacts LLM Agents: An Empirical Study of Experience-Following Behavior",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2505.16067",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory",
+    "Memory Management",
+    "Evaluation"
+   ],
+   "methods": [
+    "Empirical Study",
+    "Agentic Memory"
+   ],
+   "datasets": [
+    "Long-horizon agent tasks"
+   ],
+   "authors": [
+    "Zidi Xiong",
+    "Yuping Lin",
+    "Wenya Xie",
+    "Pengfei He",
+    "Zirui Liu",
+    "Jiliang Tang",
+    "Himabindu Lakkaraju",
+    "Zhen Xiang"
+   ],
+   "author_status": "verified",
+   "summary": "Empirically studies memory management strategies in LLM agents and finds that naive accumulation of memories can reduce accuracy, so how memory is curated matters more than whether it exists.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "verified"
+  },
+  {
+   "arxiv_id": "2505.17512",
+   "title": "Probe by Gaming: A Game-based Benchmark for Assessing Conceptual Knowledge in LLMs",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2505.17512",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Simulation",
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2505.18223",
+   "title": "IDA-Bench: Evaluating LLMs on Interactive Guided Data Analysis",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2505.18223",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Data Science Agents",
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2505.19255",
+   "title": "VTool-R1: VLMs Learn to Think with Images via Reinforcement Learning on Multimodal Tool Use",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2505.19255",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Vision-Language Models",
+    "Reinforcement Learning",
+    "Reasoning"
+   ],
+   "methods": [
+    "Reinforcement Learning",
+    "Tool Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Trains a multimodal model with reinforcement learning to call image tools, extending tool learning from text-only pipelines to visual reasoning.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2505.20718",
+   "title": "VLM Can Be a Good Assistant: Enhancing Embodied Visual Tracking with Self-Improving Vision-Language Models",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2505.20718",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Embodied Agents",
+    "Vision-Language Models",
+    "Self-Improvement"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2506.02951",
+   "title": "Adaptive Graph Pruning: A Task-Adaptive Multi-Agent Collaboration Framework",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.02951",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Coordination",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2506.04135",
+   "title": "macOSWorld: An Interactive Benchmark for GUI Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.04135",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Web Agents",
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking"
+   ],
+   "datasets": [
+    "macOSWorld"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2506.04651",
+   "title": "Agents of Change: Self-Evolving LLM Agents for Strategic Planning",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.04651",
+   "field": "Agent Architectures",
+   "topics": [
+    "Self-Improvement",
+    "Planning"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2506.07398",
+   "title": "G-Memory: Tracing Hierarchical Memory for Multi-Agent Systems",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.07398",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory",
+    "Multi-Agent Systems",
+    "Hierarchical Memory"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [
+    "ALFWorld",
+    "PDDL"
+   ],
+   "authors": [
+    "Guibin Zhang",
+    "Muxin Fu",
+    "Guancheng Wan",
+    "Miao Yu",
+    "Kun Wang",
+    "Shuicheng Yan"
+   ],
+   "author_status": "verified",
+   "summary": "Introduces a hierarchical memory architecture for multi-agent systems that captures inter- agent interaction history and distils reusable insights, improving coordination on long- horizon collaborative tasks.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "verified"
+  },
+  {
+   "arxiv_id": "2506.08292",
+   "title": "From Debate to Equilibrium: Belief-Driven Multi-Agent LLM Reasoning via Bayesian Nash Equilibrium",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.08292",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Debate",
+    "Reasoning",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Casts multi-agent debate as a game and derives equilibrium belief updates, aiming to make multi- agent reasoning converge instead of drifting toward confident but unsupported answers.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2506.08379",
+   "title": "Reinforcing Large Language Model Reasoning through Multi-Agent Reflection",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.08379",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Self-Reflection",
+    "Reasoning",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Self-Reflection",
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2506.11791",
+   "title": "SEC-bench: Automated Benchmarking of LLM Agents on Real-World Software Security Tasks",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.11791",
+   "field": "Software Agents",
+   "topics": [
+    "Software Agents",
+    "Security",
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2506.13131",
+   "title": "AlphaEvolve: A coding agent for scientific and algorithmic discovery",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.13131",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Scientific Discovery"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Uses an evolutionary loop in which a coding agent searches and mutates programs to make new scientific and algorithmic discoveries, scored by automated evaluators.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2506.20743",
+   "title": "A Survey of AI for Materials Science: Foundation Models, LLM Agents, Datasets, and Tools",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.20743",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Surveys AI for materials science, spanning foundation models, agent systems, datasets and the tooling gaps that separate models from usable laboratory workflows.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2506.21805",
+   "title": "CitySim: Modeling Urban Behaviors and City Dynamics with Large-Scale LLM-Driven Agent Simulation",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2506.21805",
+   "field": "Simulation and Society",
+   "topics": [
+    "Agent Societies",
+    "Simulation"
+   ],
+   "methods": [
+    "Simulation",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2507.02097",
+   "title": "The Future is Agentic: Definitions, Perspectives, and Open Challenges of Multi-Agent Recommender Systems",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2507.02097",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Argues that recommendation should move from single-shot ranking toward agentic and multi-agent architectures, and surveys evaluation and safety consequences of that shift.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2507.02825",
+   "title": "Establishing Best Practices for Building Rigorous Agentic Benchmarks",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2507.02825",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2507.07957",
+   "title": "MIRIX: Multi-Agent Memory System for LLM-Based Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2507.07957",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory",
+    "Multi-Agent Systems",
+    "Memory Architecture"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [
+    "Screenshots",
+    "Long conversation benchmarks"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Proposes a multi-component memory system for agents that stores and retrieves different kinds of experience separately, arguing that a single undifferentiated memory degrades retrieval quality.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "verified"
+  },
+  {
+   "arxiv_id": "2507.12806",
+   "title": "MCPEval: Automatic MCP-based Deep Evaluation for AI Agent Models",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2507.12806",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "API Calling",
+    "Evaluation"
+   ],
+   "methods": [
+    "Model Context Protocol",
+    "Benchmarking"
+   ],
+   "datasets": [
+    "MCPEval"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Provides an MCP-based evaluation harness for agents, automating task generation and scoring for model-context-protocol tool use.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2507.21035",
+   "title": "GenoMAS: A Multi-Agent Framework for Scientific Discovery via Code-Driven Gene Expression Analysis",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2507.21035",
+   "field": "Software Agents",
+   "topics": [
+    "Software Agents",
+    "Scientific Discovery",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2507.21504",
+   "title": "Evaluation and Benchmarking of LLM Agents: A Survey",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2507.21504",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2507.22034",
+   "title": "UserBench: An Interactive Gym Environment for User-Centric Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2507.22034",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [],
+   "datasets": [
+    "UserBench"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2507.23633",
+   "title": "MemoCue: Empowering LLM-Based Agents for Human Memory Recall via Strategy-Guided Querying",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2507.23633",
+   "field": "Agent Memory",
+   "topics": [
+    "Human-AI Interaction",
+    "Agent Memory"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.02085",
+   "title": "SE-Agent: Self-Evolution Trajectory Optimization in Multi-Step Reasoning with LLM-Based Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.02085",
+   "field": "Agent Architectures",
+   "topics": [
+    "Reasoning"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.04652",
+   "title": "LLM Collaboration With Multi-Agent Reinforcement Learning",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.04652",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Reinforcement Learning",
+    "Coordination",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Reinforcement Learning",
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.07407",
+   "title": "A Comprehensive Survey of Self-Evolving AI Agents: A New Paradigm Bridging Foundation Models and Lifelong Agentic Systems",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.07407",
+   "field": "Agent Architectures",
+   "topics": [
+    "Self-Improvement"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Reviews self-evolving agents that generate or curate their own training experience, and compares the feedback loops they rely on.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.08997",
+   "title": "Intrinsic Memory Agents: Heterogeneous Multi-Agent LLM Systems through Structured Contextual Memory",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.08997",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory",
+    "Multi-Agent Systems",
+    "Context Management"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [
+    "PDDL",
+    "ALFWorld",
+    "FEVER"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Gives each agent in a multi-agent system an intrinsic, role-conditioned memory stream, so agents build task-specific memory rather than sharing one global log.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "verified"
+  },
+  {
+   "arxiv_id": "2508.09549",
+   "title": "CS-Agent: LLM-based Community Search via Dual-agent Collaboration",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.09549",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Coordination"
+   ],
+   "methods": [
+    "Search",
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.12800",
+   "title": "Atom-Searcher: Enhancing Agentic Deep Research via Fine-Grained Atomic Thought Reward",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.12800",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Reasoning",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Search"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.12981",
+   "title": "Analyzing Information Sharing and Coordination in Multi-Agent Planning",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.12981",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Planning",
+    "Coordination",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.15126",
+   "title": "aiXiv: A Next-Generation Open Access Ecosystem for Scientific Discovery Generated by AI Scientists",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.15126",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Scientific Discovery"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.15760",
+   "title": "LiveMCP-101: Stress Testing and Diagnosing MCP-enabled Agents on Challenging Queries",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.15760",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "API Calling"
+   ],
+   "methods": [
+    "Model Context Protocol"
+   ],
+   "datasets": [
+    "LiveMCP-101"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.16665",
+   "title": "Trust but Verify! A Survey on Verification Design for Test-time Scaling",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.16665",
+   "field": "Safety and Security",
+   "topics": [
+    "Test-Time Scaling",
+    "Verification"
+   ],
+   "methods": [
+    "Verification"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.17196",
+   "title": "BudgetThinker: Empowering Budget-aware LLM Reasoning with Control Tokens",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.17196",
+   "field": "Agent Architectures",
+   "topics": [
+    "Reasoning"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.17674",
+   "title": "Attacking LLMs and AI Agents: Advertisement Embedding Attacks Against Large Language Models",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.17674",
+   "field": "Safety and Security",
+   "topics": [
+    "Security"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.18669",
+   "title": "MUA-RL: Multi-turn User-interacting Agent Reinforcement Learning for agentic tool use",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.18669",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Reinforcement Learning",
+    "Tool Use"
+   ],
+   "methods": [
+    "Reinforcement Learning",
+    "Tool Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.19828",
+   "title": "Memory-R1: Enhancing Large Language Model Agents to Manage and Utilize Memories via Reinforcement Learning",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.19828",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory",
+    "Reinforcement Learning"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Reinforcement Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Trains an agent with reinforcement learning to decide when to add, update, delete and retrieve memories, showing that learned memory management improves downstream task performance.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.21104",
+   "title": "PVPO: Pre-Estimated Value-Based Policy Optimization for Agentic Reasoning",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.21104",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Reinforcement Learning",
+    "Reasoning"
+   ],
+   "methods": [
+    "Reinforcement Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.21148",
+   "title": "A Survey of Scientific Large Language Models: From Data Foundations to Agent Frontiers",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.21148",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.21365",
+   "title": "Think in Games: Learning to Reason in Games via Reinforcement Learning with Large Language Models",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.21365",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Simulation",
+    "Reinforcement Learning",
+    "Reasoning"
+   ],
+   "methods": [
+    "Reinforcement Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Trains reasoning in game environments with reinforcement learning and transfers the resulting behaviour to text reasoning tasks.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.21475",
+   "title": "MMSearch-Plus: A Simple Yet Challenging Benchmark for Multimodal Browsing Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.21475",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Vision-Language Models",
+    "Evaluation"
+   ],
+   "methods": [
+    "Search",
+    "Benchmarking"
+   ],
+   "datasets": [
+    "MMSearch-Plus"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.21720",
+   "title": "PosterForest: Hierarchical Multi-Agent Collaboration for Scientific Poster Generation",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.21720",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Coordination",
+    "Scientific Discovery",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2508.21803",
+   "title": "Automated Clinical Problem Detection from SOAP Notes using a Collaborative Multi-Agent LLM Architecture",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2508.21803",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Coordination",
+    "Scientific Discovery",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2509.01211",
+   "title": "Web Fraud Attacks on LLM-driven Multi-Agent Systems",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2509.01211",
+   "field": "Safety and Security",
+   "topics": [
+    "Web Agents",
+    "Security",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2509.02547",
+   "title": "The Landscape of Agentic Reinforcement Learning for LLMs: A Survey",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2509.02547",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Reinforcement Learning"
+   ],
+   "methods": [
+    "Reinforcement Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2509.06235",
+   "title": "PillagerBench: A Competitive Multi-Agent Benchmark for Evaluating LLM-based Agents in Minecraft",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2509.06235",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Evaluation",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [
+    "PillagerBench"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2509.11939",
+   "title": "PrivWeb: Unobtrusive and Content-aware Privacy Protection For Web Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2509.11939",
+   "field": "Safety and Security",
+   "topics": [
+    "Web Agents",
+    "Privacy"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2509.14278",
+   "title": "Beyond Data Privacy: New Privacy Risks for Large Language Models",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2509.14278",
+   "field": "Safety and Security",
+   "topics": [
+    "Privacy"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2509.17488",
+   "title": "Privacy in Action: Towards Realistic Privacy Mitigation and Evaluation for LLM-Powered Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2509.17488",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Privacy",
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2510.03215",
+   "title": "Cache-to-Cache: Direct Semantic Communication Between Large Language Models",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2510.03215",
+   "field": "Agent Systems",
+   "topics": [
+    "Agent Systems"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Transfers intermediate representations directly between models instead of exchanging text, reporting efficiency gains for collaborations between heterogeneous models.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2510.04851",
+   "title": "Legomem: Modular Procedural Memory for Multi-Agent LLM Systems for Workflow Automation",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2510.04851",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory",
+    "Multi-Agent Systems",
+    "Workflow Automation"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Multi-Agent Collaboration",
+    "Workflow Orchestration"
+   ],
+   "datasets": [
+    "Workflow automation tasks"
+   ],
+   "authors": [
+    "Dongge Han",
+    "Camille Couturier",
+    "Daniel Madrigal Diaz",
+    "Xuchao Zhang",
+    "Victor Ruehle",
+    "Saravan Rajmohan"
+   ],
+   "author_status": "verified",
+   "summary": "Builds modular memory for multi-agent systems from reusable memory units that agents assemble at run time, so the same components can serve different role assignments.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "verified"
+  },
+  {
+   "arxiv_id": "2510.07172",
+   "title": "NewtonBench: Benchmarking Generalizable Scientific Law Discovery in LLM Agents",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2510.07172",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Evaluation",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Large Language Models"
+   ],
+   "datasets": [
+    "NewtonBench"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2510.07841",
+   "title": "Self-Improving LLM Agents at Test-Time",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2510.07841",
+   "field": "Agent Architectures",
+   "topics": [
+    "Test-Time Scaling",
+    "Self-Improvement"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2510.08529",
+   "title": "CoMAS: Co-Evolving Multi-Agent Systems via Interaction Rewards",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2510.08529",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2510.16079",
+   "title": "EvolveR: Self-Evolving LLM Agents through an Experience-Driven Lifecycle",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2510.16079",
+   "field": "Agent Architectures",
+   "topics": [
+    "Self-Improvement"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2510.20733",
+   "title": "Thought Communication in Multiagent Collaboration",
+   "year": 2025,
+   "url": "https://arxiv.org/abs/2510.20733",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Coordination",
+    "Reasoning",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Explores letting agents exchange abstract thoughts rather than full messages, arguing that communication bandwidth rather than model capability can bottleneck collaboration.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2401.03428",
+   "title": "Exploring Large Language Model based Intelligent Agents: Definitions, Methods, and Prospects",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2401.03428",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2401.03568",
+   "title": "Agent AI: Surveying the Horizons of Multimodal Interaction",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2401.03568",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Vision-Language Models"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2401.05268",
+   "title": "AutoAct: Automatic Agent Learning from Scratch for QA via Self-Planning",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2401.05268",
+   "field": "Agent Architectures",
+   "topics": [
+    "Planning"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Builds an agent that learns to plan from its own trajectories using self-generated supervision, reducing dependence on hand-designed multi-agent workflows.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2401.05459",
+   "title": "Personal LLM Agents: Insights and Survey about the Capability, Efficiency and Security",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2401.05459",
+   "field": "Safety and Security",
+   "topics": [
+    "Role Assignment",
+    "Security"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2401.06201",
+   "title": "EASYTOOL: Enhancing LLM-based Agents with Concise Tool Instruction",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2401.06201",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2401.10019",
+   "title": "R-Judge: Benchmarking Safety Risk Awareness for LLM Agents",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2401.10019",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Safety",
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Introduces a benchmark for whether agents recognise the safety risks of actions they are about to take, and finds current models often fail to flag them.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2401.11880",
+   "title": "PsySafe: A Comprehensive Framework for Psychological-based Attack, Defense, and Evaluation of Multi-agent System Safety",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2401.11880",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Safety",
+    "Security",
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2401.12954",
+   "title": "Meta-Prompting: Enhancing Language Models with Task-Agnostic Scaffolding",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2401.12954",
+   "field": "Agent Systems",
+   "topics": [
+    "Agent Systems"
+   ],
+   "methods": [
+    "Prompt Engineering",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2401.17167",
+   "title": "Planning, Creation, Usage: Benchmarking LLMs for Comprehensive Tool Utilization in Real-World Complex Scenarios",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2401.17167",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Planning",
+    "Evaluation",
+    "Tool Use"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Tool Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.00262",
+   "title": "Computational Experiments Meet Large Language Model Based Agents: A Survey and Perspective",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.00262",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.01030",
+   "title": "Executable Code Actions Elicit Better LLM Agents",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.01030",
+   "field": "Software Agents",
+   "topics": [
+    "Software Agents"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Shows that having language agents emit executable code as actions is more accurate and composable than emitting structured natural-language or JSON actions.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.01586",
+   "title": "TrustAgent: Towards Safe and Trustworthy LLM-based Agents",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.01586",
+   "field": "Safety and Security",
+   "topics": [
+    "Safety"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Proposes a safety framework that checks agent plans before execution, combining rule-based verification with model-based risk judgement.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.01680",
+   "title": "Large Language Model based Multi-Agents: A Survey of Progress and Challenges",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.01680",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.02716",
+   "title": "Understanding the planning of LLM agents: A survey",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.02716",
+   "field": "Agent Architectures",
+   "topics": [
+    "Planning"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.05120",
+   "title": "More Agents Is All You Need",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.05120",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Multi-Agent Systems",
+    "Sampling",
+    "Scaling"
+   ],
+   "methods": [
+    "Agent Sampling"
+   ],
+   "datasets": [
+    "Reasoning benchmarks"
+   ],
+   "authors": [
+    "Junyou Li",
+    "Qin Zhang",
+    "Yangbin Yu",
+    "Qiang Fu",
+    "Deheng Ye"
+   ],
+   "author_status": "verified",
+   "summary": "Reports that repeatedly sampling from a single LLM and aggregating answers, without any multi- agent scaffolding, gives consistent gains over elaborate multi-agent role designs.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2402.06782",
+   "title": "Debating with More Persuasive LLMs Leads to More Truthful Answers",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.06782",
+   "field": "Agent Systems",
+   "topics": [
+    "Agent Systems"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.08567",
+   "title": "Agent Smith: A Single Image Can Jailbreak One Million Multimodal LLM Agents Exponentially Fast",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.08567",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Vision-Language Models",
+    "Security"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Demonstrates that a single adversarial image can be propagated through a network of multimodal agents, amplifying a local jailbreak exponentially as agents share messages.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.10196",
+   "title": "A Trembling House of Cards? Mapping Adversarial Attacks against Language Agents",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.10196",
+   "field": "Safety and Security",
+   "topics": [
+    "Security"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.15116",
+   "title": "Large Multimodal Agents: A Survey",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.15116",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Vision-Language Models"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2402.15506",
+   "title": "AgentOhana: Design Unified Data and Training Pipeline for Effective Agent Learning",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2402.15506",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2403.00833",
+   "title": "Position Paper: Agent AI Towards a Holistic Intelligence",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2403.00833",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2403.00839",
+   "title": "ToolNet: Connecting Large Language Models with Massive Tools via Tool Graph",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2403.00839",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Organises tools into a graph so agents can navigate from general to specific capabilities when the tool set is very large.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2403.03636",
+   "title": "SheetAgent: Towards A Generalist Agent for Spreadsheet Reasoning and Manipulation via Large Language Models",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2403.03636",
+   "field": "Software Agents",
+   "topics": [
+    "Data Science Agents",
+    "Reasoning",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2403.19962",
+   "title": "Enhancing the General Agent Capabilities of Low-Parameter LLMs through Tuning and Multi-Branch Reasoning",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2403.19962",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Finetuning",
+    "Reasoning",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Fine-Tuning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2404.11584",
+   "title": "The Landscape of Emerging AI Agent Architectures for Reasoning, Planning, and Tool Calling: A Survey",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2404.11584",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Planning",
+    "Reasoning",
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Compares emerging agent architectures and argues that planning, tool wiring and memory choices matter more than the choice of underlying model.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2404.13501",
+   "title": "A Survey on the Memory Mechanism of Large Language Model based Agents",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2404.13501",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Surveys memory mechanisms for LLM-based agents, organising the design space into memory sources, storage forms, writing and retrieval operations, and evaluation practice.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2404.15155",
+   "title": "Adaptive Collaboration Strategy for LLMs in Medical Decision Making",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2404.15155",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Coordination",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2404.16130",
+   "title": "From Local to Global: A Graph RAG Approach to Query-Focused Summarization",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2404.16130",
+   "field": "Retrieval and RAG",
+   "topics": [
+    "Graph RAG",
+    "Summarization",
+    "Knowledge Graphs"
+   ],
+   "methods": [
+    "GraphRAG"
+   ],
+   "datasets": [
+    "Podcast transcripts",
+    "News datasets"
+   ],
+   "authors": [
+    "Darren Edge",
+    "Ha Trinh",
+    "Newman Cheng",
+    "Joshua Bradley",
+    "Alex Chao",
+    "Apurva Mody",
+    "Steven Truitt",
+    "Dasha Metropolitansky"
+   ],
+   "author_status": "verified",
+   "summary": "Builds a knowledge graph from a document collection and uses community-level summaries to answer global, corpus-wide questions that local vector retrieval cannot.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2404.18021",
+   "title": "CRISPR-GPT: An LLM Agent for Automated Design of Gene-Editing Experiments",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2404.18021",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Applies an LLM agent to the design of gene-editing experiments, retrieving domain constraints and proposing guide designs for expert review.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2405.02957",
+   "title": "Agent Hospital: A Simulacrum of Hospital with Evolvable Medical Agents",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2405.02957",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Scientific Discovery"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Simulates a hospital of interacting medical agents that learn from accumulated cases, as a testbed for medical decision support without exposing real patients.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2405.16334",
+   "title": "Devil's Advocate: Anticipatory Reflection for LLM Agents",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2405.16334",
+   "field": "Agent Architectures",
+   "topics": [
+    "Self-Reflection"
+   ],
+   "methods": [
+    "Self-Reflection",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2405.16533",
+   "title": "Chain of Tools: Large Language Model is an Automatic Multi-tool Learner",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2405.16533",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Has the agent compose tools into executable chains rather than choosing single tools, so multi- step tasks are handled by generated pipelines.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2406.15341",
+   "title": "GenoTEX: An LLM Agent Benchmark for Automated Gene Expression Data Analysis",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2406.15341",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Data Science Agents",
+    "Evaluation",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Large Language Models"
+   ],
+   "datasets": [
+    "GenoTEX"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2407.06813",
+   "title": "Richelieu: Self-Evolving LLM-Based Agents for AI Diplomacy",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2407.06813",
+   "field": "Simulation and Society",
+   "topics": [
+    "Self-Improvement",
+    "Simulation"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2407.09811",
+   "title": "CellAgent: An LLM-driven Multi-Agent Framework for Automated Single-cell Data Analysis",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2407.09811",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Data Science Agents",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2407.18901",
+   "title": "AppWorld: A Controllable World of Apps and People for Benchmarking Interactive Coding Agents",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2407.18901",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking"
+   ],
+   "datasets": [
+    "AppWorld"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2408.01875",
+   "title": "Re-Invoke: Tool Invocation Rewriting for Zero-Shot Tool Retrieval",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2408.01875",
+   "field": "Retrieval and RAG",
+   "topics": [
+    "Retrieval-Augmented Generation",
+    "Tool Use"
+   ],
+   "methods": [
+    "Retrieval-Augmented Generation",
+    "Tool Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Rewrites tool queries at invocation time, letting agents use unseen APIs without fine-tuning.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2408.04168",
+   "title": "Perceive, Reflect, and Plan: Designing LLM Agent for Goal-Directed City Navigation without Instructions",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2408.04168",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Embodied Agents",
+    "Self-Reflection",
+    "Planning"
+   ],
+   "methods": [
+    "Self-Reflection",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2409.07703",
+   "title": "DSBench: How Far Are Data Science Agents to Becoming Data Science Experts?",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2409.07703",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Data Science Agents",
+    "Scientific Discovery"
+   ],
+   "methods": [],
+   "datasets": [
+    "DSBench"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2409.14457",
+   "title": "Large Model Based Agents: State-of-the-Art, Cooperation Paradigms, Security and Privacy, and Future Trends",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2409.14457",
+   "field": "Safety and Security",
+   "topics": [
+    "Privacy",
+    "Security"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2409.14826",
+   "title": "ToolPlanner: A Tool Augmented LLM for Multi Granularity Instructions with Path Planning and Feedback",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2409.14826",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Planning",
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2409.18807",
+   "title": "LLM With Tools: A Survey",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2409.18807",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2410.03439",
+   "title": "ToolGen: Unified Tool Retrieval and Calling via Generation",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2410.03439",
+   "field": "Retrieval and RAG",
+   "topics": [
+    "Retrieval-Augmented Generation",
+    "Tool Use",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Retrieval-Augmented Generation",
+    "Tool Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Generates tool calls directly as tokens so retrieval and invocation are handled by one model, removing a separate retrieval stage.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2410.09097",
+   "title": "Recent advancements in LLM Red-Teaming: Techniques, Defenses, and Ethical Considerations",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2410.09097",
+   "field": "Safety and Security",
+   "topics": [
+    "Safety and Security"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2410.15686",
+   "title": "NetSafe: Exploring the Topological Safety of Multi-agent Networks",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2410.15686",
+   "field": "Safety and Security",
+   "topics": [
+    "Distributed Systems",
+    "Safety",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2412.00300",
+   "title": "PlanCritic: Formal Planning with Human Feedback",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2412.00300",
+   "field": "Agent Architectures",
+   "topics": [
+    "Alignment",
+    "Self-Reflection",
+    "Human-AI Interaction"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2412.06435",
+   "title": "Simulating Human-like Daily Activities with Desire-driven Autonomy",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2412.06435",
+   "field": "Simulation and Society",
+   "topics": [
+    "Agent Societies",
+    "Human-AI Interaction",
+    "Simulation"
+   ],
+   "methods": [
+    "Simulation"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2412.15266",
+   "title": "On the Structural Memory of LLM Agents",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2412.15266",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2412.20138",
+   "title": "TradingAgents: Multi-Agents LLM Financial Trading Framework",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2412.20138",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Composes specialised trading agents into a pipeline with structured debate and risk control, and reports portfolio behaviour over evaluation periods.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2412.20977",
+   "title": "UnrealZoo: Enriching Photo-realistic Virtual Worlds for Embodied AI",
+   "year": 2024,
+   "url": "https://arxiv.org/abs/2412.20977",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Embodied Agents"
+   ],
+   "methods": [],
+   "datasets": [
+    "UnrealZoo"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Provides realistic virtual worlds for embodied agents, reporting that current agents transfer poorly from static benchmarks to interactive visual environments.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2302.04761",
+   "title": "Toolformer: Language Models Can Teach Themselves to Use Tools",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2302.04761",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use",
+    "Self-Supervised Learning"
+   ],
+   "methods": [
+    "Toolformer"
+   ],
+   "datasets": [
+    "CCNet"
+   ],
+   "authors": [
+    "Timo Schick",
+    "Jane Dwivedi-Yu",
+    "Roberto Dessi",
+    "Roberta Raileanu",
+    "Maria Lomeli",
+    "Eric Hambro",
+    "Luke Zettlemoyer",
+    "Nicola Cancedda"
+   ],
+   "author_status": "verified",
+   "summary": "Trains a model to decide for itself when to call external tools and how to incorporate their outputs into its text, using self-supervised generated training data.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2303.11366",
+   "title": "Reflexion: Language Agents with Verbal Reinforcement Learning",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2303.11366",
+   "field": "Agent Architectures",
+   "topics": [
+    "Self-Reflection",
+    "Agent Architectures",
+    "Memory"
+   ],
+   "methods": [
+    "Reflexion",
+    "Verbal Reinforcement Learning"
+   ],
+   "datasets": [
+    "HumanEval",
+    "ALFWorld"
+   ],
+   "authors": [
+    "Noah Shinn",
+    "Federico Cassano",
+    "Beck Labash",
+    "Ashwin Gopinath",
+    "Karthik Narasimhan",
+    "Shunyu Yao"
+   ],
+   "author_status": "verified",
+   "summary": "Improves agent performance by storing verbal self-reflections after failure and feeding them back on the next attempt, without updating model weights.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2303.17760",
+   "title": "CAMEL: Communicative Agents for \"Mind\" Exploration of Large Language Model Society",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2303.17760",
+   "field": "Simulation and Society",
+   "topics": [
+    "Agent Societies"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2304.03442",
+   "title": "Generative Agents: Interactive Simulacra of Human Behavior",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2304.03442",
+   "field": "Simulation and Society",
+   "topics": [
+    "Simulation",
+    "Memory",
+    "Agent Societies"
+   ],
+   "methods": [
+    "Generative Agents"
+   ],
+   "datasets": [
+    "Smallville simulation"
+   ],
+   "authors": [
+    "Joon Sung Park",
+    "Joseph C. O'Brien",
+    "Carrie J. Cai",
+    "Meredith Ringel Morris",
+    "Percy Liang",
+    "Michael S. Bernstein"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2304.05376",
+   "title": "ChemCrow: Augmenting large-language models with chemistry tools",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2304.05376",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2304.07590",
+   "title": "Self-collaboration Code Generation via ChatGPT",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2304.07590",
+   "field": "Software Agents",
+   "topics": [
+    "Software Agents",
+    "Coordination",
+    "Scientific Discovery"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Has a model play multiple collaborating roles in one generation process, removing the need to instantiate separate agent processes.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2305.04032",
+   "title": "ToolCoder: Teach Code Generation Models to use API search tools",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2305.04032",
+   "field": "Software Agents",
+   "topics": [
+    "API Calling",
+    "Software Agents",
+    "Tool Use"
+   ],
+   "methods": [
+    "Search",
+    "Tool Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2305.10601",
+   "title": "Tree of Thoughts: Deliberate Problem Solving with Large Language Models",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2305.10601",
+   "field": "Reasoning and Inference",
+   "topics": [
+    "Chain-of-Thought",
+    "Search",
+    "Reasoning"
+   ],
+   "methods": [
+    "Tree of Thoughts"
+   ],
+   "datasets": [
+    "Game of 24",
+    "Creative Writing"
+   ],
+   "authors": [
+    "Shunyu Yao",
+    "Dian Yu",
+    "Jeffrey Zhao",
+    "Izhak Shafran",
+    "Thomas L. Griffiths",
+    "Yuan Cao",
+    "Karthik Narasimhan"
+   ],
+   "author_status": "verified",
+   "summary": "Generalises chain-of-thought to deliberate search over partial solutions, letting the model evaluate and backtrack among candidate reasoning branches.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2305.14325",
+   "title": "Improving Factuality and Reasoning in Language Models through Multiagent Debate",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2305.14325",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Debate",
+    "Reasoning",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Shows that generating several reasoning chains with separate model instances and converging on a shared answer improves factuality and arithmetic accuracy over single-agent decoding.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2305.15334",
+   "title": "Gorilla: Large Language Model Connected with Massive APIs",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2305.15334",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use",
+    "API Calling"
+   ],
+   "methods": [
+    "Gorilla"
+   ],
+   "datasets": [
+    "APIBench"
+   ],
+   "authors": [
+    "Shishir G. Patil",
+    "Tianjun Zhang",
+    "Xin Wang",
+    "Joseph E. Gonzalez"
+   ],
+   "author_status": "verified",
+   "summary": "Fine-tunes a model to select among thousands of real APIs, and adds retrieval-aware training so the model's API choice adapts to documentation changes.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2305.16504",
+   "title": "On the Tool Manipulation Capability of Open-source Large Language Models",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2305.16504",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2305.17126",
+   "title": "LARGE LANGUAGE MODELS AS TOOL MAKERS",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2305.17126",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2305.19118",
+   "title": "Encouraging Divergent Thinking in Large Language Models through Multi-Agent Debate",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2305.19118",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Debate",
+    "Reasoning",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2306.03314",
+   "title": "Multi-Agent Collaboration: Harnessing the Power of Intelligent LLM Agents",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2306.03314",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Coordination",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Surveys early multi-agent LLM collaboration and proposes a taxonomy of conversation roles and orchestration styles.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2306.05301",
+   "title": "ToolAlpaca: Generalized Tool Learning for Language Models with 3000 Simulated Cases",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2306.05301",
+   "field": "Simulation and Society",
+   "topics": [
+    "Agent Societies",
+    "Simulation",
+    "Tool Use"
+   ],
+   "methods": [
+    "Simulation",
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2306.05685",
+   "title": "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2306.05685",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Evaluation",
+    "LLM-as-a-Judge"
+   ],
+   "methods": [
+    "LLM-as-a-Judge"
+   ],
+   "datasets": [
+    "MT-Bench",
+    "Chatbot Arena"
+   ],
+   "authors": [
+    "Lianmin Zheng",
+    "Wei-Lin Chiang",
+    "Ying Sheng",
+    "Siyuan Zhuang",
+    "Zhanghao Wu",
+    "Yonghao Zhuang",
+    "Zi Lin",
+    "Zhuohan Li"
+   ],
+   "author_status": "verified",
+   "summary": "Shows that strong LLMs can judge answer quality at near-human agreement, while documenting position, verbosity and self-enhancement biases that limit automated judging.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2306.06624",
+   "title": "RestGPT: Connecting Large Language Models with Real-World RESTful APIs",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2306.06624",
+   "field": "Simulation and Society",
+   "topics": [
+    "API Calling"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2306.16207",
+   "title": "Inferring the Goals of Communicating Agents from Actions and Instructions",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2306.16207",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2307.04738",
+   "title": "Roco: Dialectic multi-robot collaboration with large language models",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2307.04738",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Embodied Agents",
+    "Coordination"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2307.07924",
+   "title": "ChatDev: Communicative Agents for Software Development",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2307.07924",
+   "field": "Software Agents",
+   "topics": [
+    "Software Agents"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Assigns software-team roles to conversational agents and lets them produce a multi-file application from a single specification, exposing coordination failure modes.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2307.16789",
+   "title": "ToolLLM: Facilitating Large Language Models to Master 16000+ Real-world APIs",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2307.16789",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Tool Use",
+    "API Calling",
+    "Instruction Tuning"
+   ],
+   "methods": [
+    "ToolLLM",
+    "DFSDT"
+   ],
+   "datasets": [
+    "ToolBench"
+   ],
+   "authors": [
+    "Yujia Qin",
+    "Shihao Liang",
+    "Yining Ye",
+    "Kunlun Zhu",
+    "Lan Yan",
+    "Yaxi Lu",
+    "Yankai Lin",
+    "Xin Cong"
+   ],
+   "author_status": "verified",
+   "summary": "Fine-tunes a model on instruction data collected through depth-first search over a large real- world API corpus so it can plan and execute multi-step API calls.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2308.00352",
+   "title": "MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2308.00352",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Multi-Agent Systems",
+    "Software Agents",
+    "Coordination"
+   ],
+   "methods": [
+    "MetaGPT",
+    "SOP Prompting"
+   ],
+   "datasets": [
+    "HumanEval",
+    "MBPP",
+    "SoftwareDev"
+   ],
+   "authors": [
+    "Sirui Hong",
+    "Mingchen Zhuge",
+    "Jonathan Chen",
+    "Xiawu Zheng",
+    "Yuheng Cheng",
+    "Ceyao Zhang",
+    "Jinlin Wang",
+    "Zili Wang"
+   ],
+   "author_status": "verified",
+   "summary": "Assigns specialised software-engineering roles to agents and coordinates them through an explicit standard-operating-procedure pipeline, improving structured output over chat-only multi-agent baselines.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2308.03427",
+   "title": "TPTU: Large Language Model-based AI Agents for Task Planning and Tool Usage",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2308.03427",
+   "field": "Tool Use and APIs",
+   "topics": [
+    "Planning",
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2308.03688",
+   "title": "AgentBench: Evaluating LLMs as Agents",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2308.03688",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Evaluation",
+    "Agent Benchmarks"
+   ],
+   "methods": [
+    "AgentBench"
+   ],
+   "datasets": [
+    "AgentBench"
+   ],
+   "authors": [
+    "Xiao Liu",
+    "Hao Yu",
+    "Hanchen Zhang",
+    "Yifan Xu",
+    "Xuanyu Lei",
+    "Hanyu Lai",
+    "Yu Gu",
+    "Yuxian Gu"
+   ],
+   "author_status": "verified",
+   "summary": "Evaluates language models as agents across several interactive environments and finds a large gap between their chat ability and their ability to act over long horizons.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2308.08155",
+   "title": "AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2308.08155",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Multi-Agent Systems",
+    "Conversational Agents",
+    "Coordination"
+   ],
+   "methods": [
+    "AutoGen"
+   ],
+   "datasets": [
+    "Agent benchmarks"
+   ],
+   "authors": [
+    "Qingyun Wu",
+    "Gagan Bansal",
+    "Jieyu Zhang",
+    "Yiran Wu",
+    "Beibin Li",
+    "Erkang Zhu",
+    "Li Jiang",
+    "Xiaoyun Zhang"
+   ],
+   "author_status": "verified",
+   "summary": "Proposes a framework in which multiple conversational agents solve tasks by exchanging messages, with configurable agents, tools and execution patterns including code-driven workflows.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2308.11432",
+   "title": "A survey on large language model based autonomous agents",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2308.11432",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2308.16505",
+   "title": "Recommender AI Agent: Integrating Large Language Models for Interactive Recommendations",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2308.16505",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2309.02427",
+   "title": "Cognitive Architectures for Language Agents",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2309.02427",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Proposes a cognitive-architecture vocabulary for language agents — modular memory, decision procedures and action spaces — and uses it to compare existing agent designs.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2309.03736",
+   "title": "TradingGPT: Multi-Agent System with Layered Memory and Distinct Characters for Enhanced Financial Trading Performance",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2309.03736",
+   "field": "Agent Memory",
+   "topics": [
+    "Role Assignment",
+    "Agent Memory",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Agentic Memory",
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2309.04658",
+   "title": "Exploring large language models for communication games: An empirical study on Werewolf",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2309.04658",
+   "field": "Simulation and Society",
+   "topics": [
+    "Simulation"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2309.07864",
+   "title": "The rise and potential of large language model based agents: a survey",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2309.07864",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2309.13007",
+   "title": "ReConcile: Round-Table Conference Improves Reasoning via Consensus among Diverse LLMs",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2309.13007",
+   "field": "Agent Architectures",
+   "topics": [
+    "Reasoning"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2309.15025",
+   "title": "Large Language Model Alignment: A Survey",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2309.15025",
+   "field": "Agent Systems",
+   "topics": [
+    "Alignment"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2309.17288",
+   "title": "AutoAgents: A Framework for Automatic Agent Generation",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2309.17288",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Scientific Discovery"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2310.02170",
+   "title": "A Dynamic LLM-Powered Agent Network for Task-Oriented Agent Collaboration",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2310.02170",
+   "field": "Multi-Agent Systems",
+   "topics": [
+    "Distributed Systems",
+    "Coordination"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Lets agents recruit and dismiss collaborators dynamically during a task, forming teams sized to the problem rather than fixed in advance.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2310.05915",
+   "title": "FireAct: Toward Language Agent Fine-tuning",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2310.05915",
+   "field": "Agent Architectures",
+   "topics": [
+    "Finetuning"
+   ],
+   "methods": [
+    "Fine-Tuning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2310.08560",
+   "title": "MemGPT: Towards LLMs as Operating Systems",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2310.08560",
+   "field": "Agent Memory",
+   "topics": [
+    "Agent Memory",
+    "Context Management",
+    "Operating Systems"
+   ],
+   "methods": [
+    "MemGPT",
+    "Virtual Context Management"
+   ],
+   "datasets": [
+    "Document QA",
+    "Multi-session chat"
+   ],
+   "authors": [
+    "Charles Packer",
+    "Sarah Wooders",
+    "Kevin Lin",
+    "Vivian Fang",
+    "Shishir G. Patil",
+    "Ion Stoica",
+    "Joseph E. Gonzalez"
+   ],
+   "author_status": "verified",
+   "summary": "Treats the language model as an operating system process: a fixed context window is virtualised over an external memory store that the model reads and writes through explicit function calls.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2310.10108",
+   "title": "On Generative Agents in Recommendation",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2310.10108",
+   "field": "Scientific and Medical Agents",
+   "topics": [
+    "Scientific Discovery"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2310.11511",
+   "title": "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2310.11511",
+   "field": "Retrieval and RAG",
+   "topics": [
+    "Retrieval-Augmented Generation",
+    "Self-Reflection"
+   ],
+   "methods": [
+    "Self-RAG",
+    "Reflection Tokens"
+   ],
+   "datasets": [
+    "PopQA",
+    "TriviaQA",
+    "PubHealth"
+   ],
+   "authors": [
+    "Akari Asai",
+    "Zeqiu Wu",
+    "Yizhong Wang",
+    "Avirup Sil",
+    "Hannaneh Hajishirzi"
+   ],
+   "author_status": "verified",
+   "summary": "Trains a model to retrieve adaptively and to critique its own generations with reflection tokens, so support and relevance decisions are made per query.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2310.17512",
+   "title": "CompeteAI: Understanding the Competition Dynamics in Large Language Model-based Agents",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2310.17512",
+   "field": "Agent Architectures",
+   "topics": [
+    "Agent Architectures"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2311.11315",
+   "title": "TPTU-v2: Boosting Task Planning and Tool Usage of Large Language Model-based Agents in Real-world Systems",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2311.11315",
+   "field": "Simulation and Society",
+   "topics": [
+    "Planning",
+    "Tool Use"
+   ],
+   "methods": [
+    "Tool Learning",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2311.12983",
+   "title": "GAIA: a benchmark for General AI Assistants",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2311.12983",
+   "field": "Benchmarks and Evaluation",
+   "topics": [
+    "Evaluation",
+    "Agent Benchmarks",
+    "Tool Use"
+   ],
+   "methods": [
+    "GAIA"
+   ],
+   "datasets": [
+    "GAIA"
+   ],
+   "authors": [
+    "Grégoire Mialon",
+    "Clémentine Fourrier",
+    "Craig Swift",
+    "Thomas Wolf",
+    "Yann LeCun",
+    "Thomas Scialom"
+   ],
+   "author_status": "verified",
+   "summary": "Defines a benchmark of real-world assistant questions that require tool use, browsing and multi- step reasoning, where human respondents score far above current assistants.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2311.17227",
+   "title": "War and Peace (WarAgent): Large Language Model-based Multi-Agent Simulation of World Wars",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2311.17227",
+   "field": "Simulation and Society",
+   "topics": [
+    "Agent Societies",
+    "Simulation",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Simulation",
+    "Multi-Agent Collaboration",
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2312.04372",
+   "title": "LaMPilot: An Open Benchmark Dataset for Autonomous Driving with Language Model Programs",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2312.04372",
+   "field": "Software Agents",
+   "topics": [
+    "Embodied Agents",
+    "Software Agents",
+    "Evaluation"
+   ],
+   "methods": [
+    "Benchmarking",
+    "Large Language Models"
+   ],
+   "datasets": [
+    "LaMPilot"
+   ],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2312.13010",
+   "title": "AgentCoder: Multi-Agent-based Code Generation with Iterative Testing and Optimisation",
+   "year": 2023,
+   "url": "https://arxiv.org/abs/2312.13010",
+   "field": "Software Agents",
+   "topics": [
+    "Software Agents",
+    "Scientific Discovery",
+    "Multi-Agent Systems"
+   ],
+   "methods": [
+    "Multi-Agent Collaboration"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Uses multiple agents to write, test and repair code iteratively, improving pass rates on program-synthesis benchmarks.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2201.11903",
+   "title": "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models",
+   "year": 2022,
+   "url": "https://arxiv.org/abs/2201.11903",
+   "field": "Reasoning and Inference",
+   "topics": [
+    "Chain-of-Thought",
+    "Prompting",
+    "Reasoning"
+   ],
+   "methods": [
+    "Chain-of-Thought"
+   ],
+   "datasets": [
+    "GSM8K",
+    "SVAMP",
+    "StrategyQA"
+   ],
+   "authors": [
+    "Jason Wei",
+    "Xuezhi Wang",
+    "Dale Schuurmans",
+    "Maarten Bosma",
+    "Brian Ichter",
+    "Fei Xia",
+    "Ed H. Chi",
+    "Quoc V. Le"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2203.02155",
+   "title": "Training language models to follow instructions with human feedback",
+   "year": 2022,
+   "url": "https://arxiv.org/abs/2203.02155",
+   "field": "Alignment and Safety",
+   "topics": [
+    "Alignment",
+    "Reinforcement Learning from Human Feedback"
+   ],
+   "methods": [
+    "RLHF",
+    "InstructGPT"
+   ],
+   "datasets": [
+    "API prompts"
+   ],
+   "authors": [
+    "Long Ouyang",
+    "Jeffrey Wu",
+    "Xu Jiang",
+    "Diogo Almeida",
+    "Carroll L. Wainwright",
+    "Pamela Mishkin",
+    "Chong Zhang",
+    "Sandhini Agarwal"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2203.11171",
+   "title": "Self-Consistency Improves Chain of Thought Reasoning in Language Models",
+   "year": 2022,
+   "url": "https://arxiv.org/abs/2203.11171",
+   "field": "Reasoning and Inference",
+   "topics": [
+    "Chain-of-Thought",
+    "Reasoning",
+    "Decoding"
+   ],
+   "methods": [
+    "Self-Consistency"
+   ],
+   "datasets": [
+    "GSM8K",
+    "SVAMP",
+    "AQuA"
+   ],
+   "authors": [
+    "Xuezhi Wang",
+    "Jason Wei",
+    "Dale Schuurmans",
+    "Quoc V. Le",
+    "Ed H. Chi",
+    "Sharan Narang",
+    "Aakanksha Chowdhery",
+    "Denny Zhou"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2205.11916",
+   "title": "Large Language Models are Zero-Shot Reasoners",
+   "year": 2022,
+   "url": "https://arxiv.org/abs/2205.11916",
+   "field": "Reasoning and Inference",
+   "topics": [
+    "Chain-of-Thought",
+    "Prompting",
+    "Reasoning"
+   ],
+   "methods": [
+    "Zero-Shot Chain-of-Thought"
+   ],
+   "datasets": [
+    "MultiArith",
+    "GSM8K"
+   ],
+   "authors": [
+    "Takeshi Kojima",
+    "Shixiang Shane Gu",
+    "Machel Reid",
+    "Yutaka Matsuo",
+    "Yusuke Iwasawa"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2210.03629",
+   "title": "ReAct: Synergizing Reasoning and Acting in Language Models",
+   "year": 2022,
+   "url": "https://arxiv.org/abs/2210.03629",
+   "field": "Agent Architectures",
+   "topics": [
+    "Tool Use",
+    "Reasoning",
+    "Agent Architectures"
+   ],
+   "methods": [
+    "ReAct",
+    "Tool Use"
+   ],
+   "datasets": [
+    "HotpotQA",
+    "FEVER",
+    "ALFWorld"
+   ],
+   "authors": [
+    "Shunyu Yao",
+    "Jeffrey Zhao",
+    "Dian Yu",
+    "Nan Du",
+    "Izhak Shafran",
+    "Karthik Narasimhan",
+    "Yuan Cao"
+   ],
+   "author_status": "verified",
+   "summary": "Interleaves reasoning traces with tool actions so the model can gather and react to external evidence while solving knowledge-intensive tasks.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2212.06817",
+   "title": "RT-1: Robotics Transformer for Real-World Control at Scale",
+   "year": 2022,
+   "url": "https://arxiv.org/abs/2212.06817",
+   "field": "Embodied and Vision",
+   "topics": [
+    "Robotics",
+    "Vision-Language Models",
+    "Imitation Learning"
+   ],
+   "methods": [
+    "Robotics Transformer"
+   ],
+   "datasets": [
+    "Robotics tasks"
+   ],
+   "authors": [
+    "Anthony Brohan",
+    "Noah Brown",
+    "Justice Carbajal",
+    "Yevgen Chebotar",
+    "Joseph Dabis",
+    "Chelsea Finn",
+    "Keerthana Gopalakrishnan",
+    "Karol Hausman"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2103.01955",
+   "title": "The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games",
+   "year": 2021,
+   "url": "https://arxiv.org/abs/2103.01955",
+   "field": "Multi-Agent RL",
+   "topics": [
+    "Multi-Agent Systems",
+    "Policy Optimization",
+    "Reinforcement Learning"
+   ],
+   "methods": [
+    "MAPPO",
+    "PPO"
+   ],
+   "datasets": [
+    "SMAC",
+    "Hanabi",
+    "MPE"
+   ],
+   "authors": [
+    "Chao Yu",
+    "Akash Velu",
+    "Eugene Vinitsky",
+    "Jiajun Gao",
+    "Yu Wang",
+    "Alexandre Bayen",
+    "Yi Wu"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2106.09685",
+   "title": "LoRA: Low-Rank Adaptation of Large Language Models",
+   "year": 2021,
+   "url": "https://arxiv.org/abs/2106.09685",
+   "field": "Model Architectures",
+   "topics": [
+    "Parameter-Efficient Fine-Tuning",
+    "Large Language Models"
+   ],
+   "methods": [
+    "LoRA"
+   ],
+   "datasets": [
+    "GLUE",
+    "E2E NLG"
+   ],
+   "authors": [
+    "Edward J. Hu",
+    "Yelong Shen",
+    "Phillip Wallis",
+    "Zeyuan Allen-Zhu",
+    "Yuanzhi Li",
+    "Shean Wang",
+    "Lu Wang",
+    "Weizhu Chen"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2108.07258",
+   "title": "On the Opportunities and Risks of Foundation Models",
+   "year": 2021,
+   "url": "https://arxiv.org/abs/2108.07258",
+   "field": "Safety and Security",
+   "topics": [
+    "Reinforcement Learning"
+   ],
+   "methods": [
+    "Reinforcement Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Frames foundation models as a general-purpose technology and analyses their opportunities and emergent risks, including homogenisation and misuse potential.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2112.04359",
+   "title": "Ethical and social risks of harm from Language Models",
+   "year": 2021,
+   "url": "https://arxiv.org/abs/2112.04359",
+   "field": "Simulation and Society",
+   "topics": [
+    "Agent Societies"
+   ],
+   "methods": [
+    "Large Language Models"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Catalogues ethical and social risks from increasingly capable language models and argues that risk assessment must combine technical and social analysis.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2112.09332",
+   "title": "WebGPT: Browser-assisted question-answering with human feedback",
+   "year": 2021,
+   "url": "https://arxiv.org/abs/2112.09332",
+   "field": "Agent Systems",
+   "topics": [
+    "Alignment",
+    "Web Agents",
+    "Human-AI Interaction"
+   ],
+   "methods": [],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2004.07213",
+   "title": "Toward Trustworthy AI Development: Mechanisms for Supporting Verifiable Claims",
+   "year": 2020,
+   "url": "https://arxiv.org/abs/2004.07213",
+   "field": "Safety and Security",
+   "topics": [
+    "Verification",
+    "Safety",
+    "Reinforcement Learning"
+   ],
+   "methods": [
+    "Verification",
+    "Reinforcement Learning"
+   ],
+   "datasets": [],
+   "authors": [],
+   "author_status": "not-collected",
+   "summary": "Proposes mechanisms for verifiable claims about AI systems, arguing that trustworthy deployment needs technical evidence combined with institutional practices.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "pool"
+  },
+  {
+   "arxiv_id": "2005.11401",
+   "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+   "year": 2020,
+   "url": "https://arxiv.org/abs/2005.11401",
+   "field": "Retrieval and RAG",
+   "topics": [
+    "Retrieval-Augmented Generation",
+    "Knowledge-Intensive NLP"
+   ],
+   "methods": [
+    "RAG",
+    "Dense Retrieval"
+   ],
+   "datasets": [
+    "Natural Questions",
+    "TriviaQA",
+    "FEVER"
+   ],
+   "authors": [
+    "Patrick Lewis",
+    "Ethan Perez",
+    "Aleksandra Piktus",
+    "Fabio Petroni",
+    "Vladimir Karpukhin",
+    "Naman Goyal",
+    "Heinrich Kuttler",
+    "Mike Lewis"
+   ],
+   "author_status": "verified",
+   "summary": "Combines a parametric sequence model with a dense retriever over a document index, showing that retrieval improves knowledge-intensive tasks and factual grounding.",
+   "summary_source": "editorial-summary",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "2005.14165",
+   "title": "Language Models are Few-Shot Learners",
+   "year": 2020,
+   "url": "https://arxiv.org/abs/2005.14165",
+   "field": "Model Architectures",
+   "topics": [
+    "Large Language Models",
+    "In-Context Learning"
+   ],
+   "methods": [
+    "GPT-3"
+   ],
+   "datasets": [
+    "SuperGLUE",
+    "TriviaQA"
+   ],
+   "authors": [
+    "Tom B. Brown",
+    "Benjamin Mann",
+    "Nick Ryder",
+    "Melanie Subbiah",
+    "Jared Kaplan",
+    "Prafulla Dhariwal",
+    "Amanda Askell",
+    "Sandhini Agarwal"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "1806.01261",
+   "title": "Relational inductive biases, deep learning, and graph networks",
+   "year": 2018,
+   "url": "https://arxiv.org/abs/1806.01261",
+   "field": "Graph Learning",
+   "topics": [
+    "Graph Neural Networks",
+    "Relational Reasoning"
+   ],
+   "methods": [
+    "Graph Networks"
+   ],
+   "datasets": [
+    "CLEVR"
+   ],
+   "authors": [
+    "Peter W. Battaglia",
+    "Jessica B. Hamrick",
+    "Victor Bapst",
+    "Alvaro Sanchez-Gonzalez",
+    "Vinicius Zambaldi",
+    "Mateusz Malinowski",
+    "Andrea Tacchetti",
+    "David Raposo"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "1810.04805",
+   "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+   "year": 2018,
+   "url": "https://arxiv.org/abs/1810.04805",
+   "field": "Model Architectures",
+   "topics": [
+    "Pre-training",
+    "Transformers",
+    "Language Understanding"
+   ],
+   "methods": [
+    "BERT",
+    "Masked Language Modeling"
+   ],
+   "datasets": [
+    "GLUE",
+    "SQuAD"
+   ],
+   "authors": [
+    "Jacob Devlin",
+    "Ming-Wei Chang",
+    "Kenton Lee",
+    "Kristina Toutanova"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "1706.02275",
+   "title": "Multi-Agent Actor-Critic for Mixed Cooperative-Competitive Environments",
+   "year": 2017,
+   "url": "https://arxiv.org/abs/1706.02275",
+   "field": "Multi-Agent RL",
+   "topics": [
+    "Multi-Agent Systems",
+    "Actor-Critic",
+    "Reinforcement Learning"
+   ],
+   "methods": [
+    "MADDPG"
+   ],
+   "datasets": [
+    "Multi-Agent Particle Environments"
+   ],
+   "authors": [
+    "Ryan Lowe",
+    "Yi Wu",
+    "Aviv Tamar",
+    "Jean Harb",
+    "Pieter Abbeel",
+    "Igor Mordatch"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "1706.03762",
+   "title": "Attention Is All You Need",
+   "year": 2017,
+   "url": "https://arxiv.org/abs/1706.03762",
+   "field": "Model Architectures",
+   "topics": [
+    "Transformers",
+    "Attention Mechanisms"
+   ],
+   "methods": [
+    "Transformer",
+    "Self-Attention"
+   ],
+   "datasets": [
+    "WMT 2014"
+   ],
+   "authors": [
+    "Ashish Vaswani",
+    "Noam Shazeer",
+    "Niki Parmar",
+    "Jakob Uszkoreit",
+    "Llion Jones",
+    "Aidan N. Gomez",
+    "Lukasz Kaiser",
+    "Illia Polosukhin"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "1707.06347",
+   "title": "Proximal Policy Optimization Algorithms",
+   "year": 2017,
+   "url": "https://arxiv.org/abs/1707.06347",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Policy Optimization",
+    "Reinforcement Learning"
+   ],
+   "methods": [
+    "PPO"
+   ],
+   "datasets": [
+    "Atari 2600",
+    "MuJoCo"
+   ],
+   "authors": [
+    "John Schulman",
+    "Filip Wolski",
+    "Prafulla Dhariwal",
+    "Alec Radford",
+    "Oleg Klimov"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "1710.10903",
+   "title": "Graph Attention Networks",
+   "year": 2017,
+   "url": "https://arxiv.org/abs/1710.10903",
+   "field": "Graph Learning",
+   "topics": [
+    "Graph Neural Networks",
+    "Attention Mechanisms"
+   ],
+   "methods": [
+    "GAT"
+   ],
+   "datasets": [
+    "Cora",
+    "Citeseer",
+    "Pubmed"
+   ],
+   "authors": [
+    "Petar Velickovic",
+    "Guillem Cucurull",
+    "Arantxa Casanova",
+    "Adriana Romero",
+    "Pietro Lio",
+    "Yoshua Bengio"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "1609.02907",
+   "title": "Semi-Supervised Classification with Graph Convolutional Networks",
+   "year": 2016,
+   "url": "https://arxiv.org/abs/1609.02907",
+   "field": "Graph Learning",
+   "topics": [
+    "Graph Neural Networks",
+    "Semi-Supervised Learning"
+   ],
+   "methods": [
+    "GCN"
+   ],
+   "datasets": [
+    "Cora",
+    "Citeseer",
+    "Pubmed"
+   ],
+   "authors": [
+    "Thomas N. Kipf",
+    "Max Welling"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "1502.05477",
+   "title": "Trust Region Policy Optimization",
+   "year": 2015,
+   "url": "https://arxiv.org/abs/1502.05477",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Policy Optimization",
+    "Reinforcement Learning"
+   ],
+   "methods": [
+    "TRPO"
+   ],
+   "datasets": [
+    "MuJoCo",
+    "Atari 2600"
+   ],
+   "authors": [
+    "John Schulman",
+    "Sergey Levine",
+    "Philipp Moritz",
+    "Michael I. Jordan",
+    "Pieter Abbeel"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  },
+  {
+   "arxiv_id": "1312.5602",
+   "title": "Playing Atari with Deep Reinforcement Learning",
+   "year": 2013,
+   "url": "https://arxiv.org/abs/1312.5602",
+   "field": "Reinforcement Learning",
+   "topics": [
+    "Deep Reinforcement Learning",
+    "Value-Based RL"
+   ],
+   "methods": [
+    "DQN"
+   ],
+   "datasets": [
+    "Atari 2600"
+   ],
+   "authors": [
+    "Volodymyr Mnih",
+    "Koray Kavukcuoglu",
+    "David Silver",
+    "Alex Graves",
+    "Ioannis Antonoglou",
+    "Daan Wierstra",
+    "Martin Riedmiller"
+   ],
+   "author_status": "verified",
+   "summary": "",
+   "summary_source": "taxonomy",
+   "corpus_tier": "classic"
+  }
+ ],
+ "topics": [
+  {
+   "id": "multi-agent-systems",
+   "name": "Multi-Agent Systems",
+   "paper_count": 38
+  },
+  {
+   "id": "scientific-discovery",
+   "name": "Scientific Discovery",
+   "paper_count": 25
+  },
+  {
+   "id": "tool-use",
+   "name": "Tool Use",
+   "paper_count": 24
+  },
+  {
+   "id": "reasoning",
+   "name": "Reasoning",
+   "paper_count": 23
+  },
+  {
+   "id": "evaluation",
+   "name": "Evaluation",
+   "paper_count": 22
+  },
+  {
+   "id": "agent-architectures",
+   "name": "Agent Architectures",
+   "paper_count": 18
+  },
+  {
+   "id": "coordination",
+   "name": "Coordination",
+   "paper_count": 18
+  },
+  {
+   "id": "agent-memory",
+   "name": "Agent Memory",
+   "paper_count": 15
+  },
+  {
+   "id": "security",
+   "name": "Security",
+   "paper_count": 14
+  },
+  {
+   "id": "reinforcement-learning",
+   "name": "Reinforcement Learning",
+   "paper_count": 13
+  },
+  {
+   "id": "planning",
+   "name": "Planning",
+   "paper_count": 11
+  },
+  {
+   "id": "software-agents",
+   "name": "Software Agents",
+   "paper_count": 10
+  },
+  {
+   "id": "simulation",
+   "name": "Simulation",
+   "paper_count": 9
+  },
+  {
+   "id": "agent-societies",
+   "name": "Agent Societies",
+   "paper_count": 7
+  },
+  {
+   "id": "self-improvement",
+   "name": "Self-Improvement",
+   "paper_count": 7
+  },
+  {
+   "id": "self-reflection",
+   "name": "Self-Reflection",
+   "paper_count": 7
+  },
+  {
+   "id": "vision-language-models",
+   "name": "Vision-Language Models",
+   "paper_count": 7
+  },
+  {
+   "id": "api-calling",
+   "name": "API Calling",
+   "paper_count": 6
+  },
+  {
+   "id": "human-ai-interaction",
+   "name": "Human-AI Interaction",
+   "paper_count": 6
+  },
+  {
+   "id": "safety",
+   "name": "Safety",
+   "paper_count": 6
+  },
+  {
+   "id": "data-science-agents",
+   "name": "Data Science Agents",
+   "paper_count": 5
+  },
+  {
+   "id": "embodied-agents",
+   "name": "Embodied Agents",
+   "paper_count": 5
+  },
+  {
+   "id": "privacy",
+   "name": "Privacy",
+   "paper_count": 5
+  },
+  {
+   "id": "retrieval-augmented-generation",
+   "name": "Retrieval-Augmented Generation",
+   "paper_count": 5
+  },
+  {
+   "id": "web-agents",
+   "name": "Web Agents",
+   "paper_count": 5
+  },
+  {
+   "id": "alignment",
+   "name": "Alignment",
+   "paper_count": 4
+  },
+  {
+   "id": "chain-of-thought",
+   "name": "Chain-of-Thought",
+   "paper_count": 4
+  },
+  {
+   "id": "distributed-systems",
+   "name": "Distributed Systems",
+   "paper_count": 4
+  },
+  {
+   "id": "finetuning",
+   "name": "Finetuning",
+   "paper_count": 4
+  },
+  {
+   "id": "agent-systems",
+   "name": "Agent Systems",
+   "paper_count": 3
+  },
+  {
+   "id": "debate",
+   "name": "Debate",
+   "paper_count": 3
+  },
+  {
+   "id": "graph-neural-networks",
+   "name": "Graph Neural Networks",
+   "paper_count": 3
+  },
+  {
+   "id": "policy-optimization",
+   "name": "Policy Optimization",
+   "paper_count": 3
+  },
+  {
+   "id": "agent-benchmarks",
+   "name": "Agent Benchmarks",
+   "paper_count": 2
+  },
+  {
+   "id": "attention-mechanisms",
+   "name": "Attention Mechanisms",
+   "paper_count": 2
+  },
+  {
+   "id": "context-management",
+   "name": "Context Management",
+   "paper_count": 2
+  },
+  {
+   "id": "knowledge-graphs",
+   "name": "Knowledge Graphs",
+   "paper_count": 2
+  },
+  {
+   "id": "large-language-models",
+   "name": "Large Language Models",
+   "paper_count": 2
+  },
+  {
+   "id": "memory",
+   "name": "Memory",
+   "paper_count": 2
+  },
+  {
+   "id": "prompting",
+   "name": "Prompting",
+   "paper_count": 2
+  },
+  {
+   "id": "role-assignment",
+   "name": "Role Assignment",
+   "paper_count": 2
+  },
+  {
+   "id": "test-time-scaling",
+   "name": "Test-Time Scaling",
+   "paper_count": 2
+  },
+  {
+   "id": "transformers",
+   "name": "Transformers",
+   "paper_count": 2
+  },
+  {
+   "id": "verification",
+   "name": "Verification",
+   "paper_count": 2
+  },
+  {
+   "id": "actor-critic",
+   "name": "Actor-Critic",
+   "paper_count": 1
+  },
+  {
+   "id": "agent-protocols",
+   "name": "Agent Protocols",
+   "paper_count": 1
+  },
+  {
+   "id": "conversational-agents",
+   "name": "Conversational Agents",
+   "paper_count": 1
+  },
+  {
+   "id": "decoding",
+   "name": "Decoding",
+   "paper_count": 1
+  },
+  {
+   "id": "deep-reinforcement-learning",
+   "name": "Deep Reinforcement Learning",
+   "paper_count": 1
+  },
+  {
+   "id": "graph-rag",
+   "name": "Graph RAG",
+   "paper_count": 1
+  },
+  {
+   "id": "hierarchical-memory",
+   "name": "Hierarchical Memory",
+   "paper_count": 1
+  },
+  {
+   "id": "imitation-learning",
+   "name": "Imitation Learning",
+   "paper_count": 1
+  },
+  {
+   "id": "in-context-learning",
+   "name": "In-Context Learning",
+   "paper_count": 1
+  },
+  {
+   "id": "instruction-tuning",
+   "name": "Instruction Tuning",
+   "paper_count": 1
+  },
+  {
+   "id": "knowledge-intensive-nlp",
+   "name": "Knowledge-Intensive NLP",
+   "paper_count": 1
+  },
+  {
+   "id": "language-understanding",
+   "name": "Language Understanding",
+   "paper_count": 1
+  },
+  {
+   "id": "llm-as-a-judge",
+   "name": "LLM-as-a-Judge",
+   "paper_count": 1
+  },
+  {
+   "id": "memory-architecture",
+   "name": "Memory Architecture",
+   "paper_count": 1
+  },
+  {
+   "id": "memory-management",
+   "name": "Memory Management",
+   "paper_count": 1
+  },
+  {
+   "id": "operating-systems",
+   "name": "Operating Systems",
+   "paper_count": 1
+  },
+  {
+   "id": "parameter-efficient-fine-tuning",
+   "name": "Parameter-Efficient Fine-Tuning",
+   "paper_count": 1
+  },
+  {
+   "id": "pre-training",
+   "name": "Pre-training",
+   "paper_count": 1
+  },
+  {
+   "id": "reinforcement-learning-from-human-feedback",
+   "name": "Reinforcement Learning from Human Feedback",
+   "paper_count": 1
+  },
+  {
+   "id": "relational-reasoning",
+   "name": "Relational Reasoning",
+   "paper_count": 1
+  },
+  {
+   "id": "robotics",
+   "name": "Robotics",
+   "paper_count": 1
+  },
+  {
+   "id": "safety-and-security",
+   "name": "Safety and Security",
+   "paper_count": 1
+  },
+  {
+   "id": "sampling",
+   "name": "Sampling",
+   "paper_count": 1
+  },
+  {
+   "id": "scaling",
+   "name": "Scaling",
+   "paper_count": 1
+  },
+  {
+   "id": "search",
+   "name": "Search",
+   "paper_count": 1
+  },
+  {
+   "id": "self-supervised-learning",
+   "name": "Self-Supervised Learning",
+   "paper_count": 1
+  },
+  {
+   "id": "semi-supervised-learning",
+   "name": "Semi-Supervised Learning",
+   "paper_count": 1
+  },
+  {
+   "id": "summarization",
+   "name": "Summarization",
+   "paper_count": 1
+  },
+  {
+   "id": "temporal-reasoning",
+   "name": "Temporal Reasoning",
+   "paper_count": 1
+  },
+  {
+   "id": "value-based-rl",
+   "name": "Value-Based RL",
+   "paper_count": 1
+  },
+  {
+   "id": "workflow-automation",
+   "name": "Workflow Automation",
+   "paper_count": 1
+  }
+ ],
+ "methods": [
+  {
+   "id": "large-language-models",
+   "name": "Large Language Models",
+   "paper_count": 90
+  },
+  {
+   "id": "multi-agent-collaboration",
+   "name": "Multi-Agent Collaboration",
+   "paper_count": 42
+  },
+  {
+   "id": "tool-learning",
+   "name": "Tool Learning",
+   "paper_count": 20
+  },
+  {
+   "id": "benchmarking",
+   "name": "Benchmarking",
+   "paper_count": 18
+  },
+  {
+   "id": "agentic-memory",
+   "name": "Agentic Memory",
+   "paper_count": 14
+  },
+  {
+   "id": "reinforcement-learning",
+   "name": "Reinforcement Learning",
+   "paper_count": 10
+  },
+  {
+   "id": "search",
+   "name": "Search",
+   "paper_count": 6
+  },
+  {
+   "id": "fine-tuning",
+   "name": "Fine-Tuning",
+   "paper_count": 4
+  },
+  {
+   "id": "retrieval-augmented-generation",
+   "name": "Retrieval-Augmented Generation",
+   "paper_count": 4
+  },
+  {
+   "id": "simulation",
+   "name": "Simulation",
+   "paper_count": 4
+  },
+  {
+   "id": "self-reflection",
+   "name": "Self-Reflection",
+   "paper_count": 3
+  },
+  {
+   "id": "model-context-protocol",
+   "name": "Model Context Protocol",
+   "paper_count": 2
+  },
+  {
+   "id": "ppo",
+   "name": "PPO",
+   "paper_count": 2
+  },
+  {
+   "id": "prompt-engineering",
+   "name": "Prompt Engineering",
+   "paper_count": 2
+  },
+  {
+   "id": "verification",
+   "name": "Verification",
+   "paper_count": 2
+  },
+  {
+   "id": "agent-sampling",
+   "name": "Agent Sampling",
+   "paper_count": 1
+  },
+  {
+   "id": "agentbench",
+   "name": "AgentBench",
+   "paper_count": 1
+  },
+  {
+   "id": "autogen",
+   "name": "AutoGen",
+   "paper_count": 1
+  },
+  {
+   "id": "bert",
+   "name": "BERT",
+   "paper_count": 1
+  },
+  {
+   "id": "chain-of-thought",
+   "name": "Chain-of-Thought",
+   "paper_count": 1
+  },
+  {
+   "id": "dense-retrieval",
+   "name": "Dense Retrieval",
+   "paper_count": 1
+  },
+  {
+   "id": "dfsdt",
+   "name": "DFSDT",
+   "paper_count": 1
+  },
+  {
+   "id": "dqn",
+   "name": "DQN",
+   "paper_count": 1
+  },
+  {
+   "id": "empirical-study",
+   "name": "Empirical Study",
+   "paper_count": 1
+  },
+  {
+   "id": "gaia",
+   "name": "GAIA",
+   "paper_count": 1
+  },
+  {
+   "id": "gat",
+   "name": "GAT",
+   "paper_count": 1
+  },
+  {
+   "id": "gcn",
+   "name": "GCN",
+   "paper_count": 1
+  },
+  {
+   "id": "generative-agents",
+   "name": "Generative Agents",
+   "paper_count": 1
+  },
+  {
+   "id": "gorilla",
+   "name": "Gorilla",
+   "paper_count": 1
+  },
+  {
+   "id": "gpt-3",
+   "name": "GPT-3",
+   "paper_count": 1
+  },
+  {
+   "id": "graph-networks",
+   "name": "Graph Networks",
+   "paper_count": 1
+  },
+  {
+   "id": "graphrag",
+   "name": "GraphRAG",
+   "paper_count": 1
+  },
+  {
+   "id": "instructgpt",
+   "name": "InstructGPT",
+   "paper_count": 1
+  },
+  {
+   "id": "knowledge-graphs",
+   "name": "Knowledge Graphs",
+   "paper_count": 1
+  },
+  {
+   "id": "llm-as-a-judge",
+   "name": "LLM-as-a-Judge",
+   "paper_count": 1
+  },
+  {
+   "id": "lora",
+   "name": "LoRA",
+   "paper_count": 1
+  },
+  {
+   "id": "maddpg",
+   "name": "MADDPG",
+   "paper_count": 1
+  },
+  {
+   "id": "mappo",
+   "name": "MAPPO",
+   "paper_count": 1
+  },
+  {
+   "id": "masked-language-modeling",
+   "name": "Masked Language Modeling",
+   "paper_count": 1
+  },
+  {
+   "id": "memgpt",
+   "name": "MemGPT",
+   "paper_count": 1
+  },
+  {
+   "id": "metagpt",
+   "name": "MetaGPT",
+   "paper_count": 1
+  },
+  {
+   "id": "rag",
+   "name": "RAG",
+   "paper_count": 1
+  },
+  {
+   "id": "react",
+   "name": "ReAct",
+   "paper_count": 1
+  },
+  {
+   "id": "reflection-tokens",
+   "name": "Reflection Tokens",
+   "paper_count": 1
+  },
+  {
+   "id": "reflexion",
+   "name": "Reflexion",
+   "paper_count": 1
+  },
+  {
+   "id": "rlhf",
+   "name": "RLHF",
+   "paper_count": 1
+  },
+  {
+   "id": "robotics-transformer",
+   "name": "Robotics Transformer",
+   "paper_count": 1
+  },
+  {
+   "id": "self-attention",
+   "name": "Self-Attention",
+   "paper_count": 1
+  },
+  {
+   "id": "self-consistency",
+   "name": "Self-Consistency",
+   "paper_count": 1
+  },
+  {
+   "id": "self-rag",
+   "name": "Self-RAG",
+   "paper_count": 1
+  },
+  {
+   "id": "sop-prompting",
+   "name": "SOP Prompting",
+   "paper_count": 1
+  },
+  {
+   "id": "tool-use",
+   "name": "Tool Use",
+   "paper_count": 1
+  },
+  {
+   "id": "toolformer",
+   "name": "Toolformer",
+   "paper_count": 1
+  },
+  {
+   "id": "toolllm",
+   "name": "ToolLLM",
+   "paper_count": 1
+  },
+  {
+   "id": "transformer",
+   "name": "Transformer",
+   "paper_count": 1
+  },
+  {
+   "id": "tree-of-thoughts",
+   "name": "Tree of Thoughts",
+   "paper_count": 1
+  },
+  {
+   "id": "trpo",
+   "name": "TRPO",
+   "paper_count": 1
+  },
+  {
+   "id": "verbal-reinforcement-learning",
+   "name": "Verbal Reinforcement Learning",
+   "paper_count": 1
+  },
+  {
+   "id": "virtual-context-management",
+   "name": "Virtual Context Management",
+   "paper_count": 1
+  },
+  {
+   "id": "workflow-orchestration",
+   "name": "Workflow Orchestration",
+   "paper_count": 1
+  },
+  {
+   "id": "zero-shot-chain-of-thought",
+   "name": "Zero-Shot Chain-of-Thought",
+   "paper_count": 1
+  }
+ ],
+ "datasets": [
+  {
+   "id": "alfworld",
+   "name": "ALFWorld",
+   "paper_count": 4
+  },
+  {
+   "id": "atari-2600",
+   "name": "Atari 2600",
+   "paper_count": 3
+  },
+  {
+   "id": "fever",
+   "name": "FEVER",
+   "paper_count": 3
+  },
+  {
+   "id": "gsm8k",
+   "name": "GSM8K",
+   "paper_count": 3
+  },
+  {
+   "id": "triviaqa",
+   "name": "TriviaQA",
+   "paper_count": 3
+  },
+  {
+   "id": "agentbench",
+   "name": "AgentBench",
+   "paper_count": 2
+  },
+  {
+   "id": "citeseer",
+   "name": "Citeseer",
+   "paper_count": 2
+  },
+  {
+   "id": "cora",
+   "name": "Cora",
+   "paper_count": 2
+  },
+  {
+   "id": "glue",
+   "name": "GLUE",
+   "paper_count": 2
+  },
+  {
+   "id": "humaneval",
+   "name": "HumanEval",
+   "paper_count": 2
+  },
+  {
+   "id": "mujoco",
+   "name": "MuJoCo",
+   "paper_count": 2
+  },
+  {
+   "id": "pddl",
+   "name": "PDDL",
+   "paper_count": 2
+  },
+  {
+   "id": "pubmed",
+   "name": "Pubmed",
+   "paper_count": 2
+  },
+  {
+   "id": "svamp",
+   "name": "SVAMP",
+   "paper_count": 2
+  },
+  {
+   "id": "agent-benchmarks",
+   "name": "Agent benchmarks",
+   "paper_count": 1
+  },
+  {
+   "id": "api-prompts",
+   "name": "API prompts",
+   "paper_count": 1
+  },
+  {
+   "id": "apibench",
+   "name": "APIBench",
+   "paper_count": 1
+  },
+  {
+   "id": "appworld",
+   "name": "AppWorld",
+   "paper_count": 1
+  },
+  {
+   "id": "aqua",
+   "name": "AQuA",
+   "paper_count": 1
+  },
+  {
+   "id": "ccnet",
+   "name": "CCNet",
+   "paper_count": 1
+  },
+  {
+   "id": "chatbot-arena",
+   "name": "Chatbot Arena",
+   "paper_count": 1
+  },
+  {
+   "id": "clevr",
+   "name": "CLEVR",
+   "paper_count": 1
+  },
+  {
+   "id": "creative-writing",
+   "name": "Creative Writing",
+   "paper_count": 1
+  },
+  {
+   "id": "document-qa",
+   "name": "Document QA",
+   "paper_count": 1
+  },
+  {
+   "id": "dsbench",
+   "name": "DSBench",
+   "paper_count": 1
+  },
+  {
+   "id": "e2e-nlg",
+   "name": "E2E NLG",
+   "paper_count": 1
+  },
+  {
+   "id": "gaia",
+   "name": "GAIA",
+   "paper_count": 1
+  },
+  {
+   "id": "game-of-24",
+   "name": "Game of 24",
+   "paper_count": 1
+  },
+  {
+   "id": "genotex",
+   "name": "GenoTEX",
+   "paper_count": 1
+  },
+  {
+   "id": "hanabi",
+   "name": "Hanabi",
+   "paper_count": 1
+  },
+  {
+   "id": "hotpotqa",
+   "name": "HotpotQA",
+   "paper_count": 1
+  },
+  {
+   "id": "humanity-s-last-exam",
+   "name": "Humanity's Last Exam",
+   "paper_count": 1
+  },
+  {
+   "id": "lampilot",
+   "name": "LaMPilot",
+   "paper_count": 1
+  },
+  {
+   "id": "livemcp-101",
+   "name": "LiveMCP-101",
+   "paper_count": 1
+  },
+  {
+   "id": "long-conversation-benchmarks",
+   "name": "Long conversation benchmarks",
+   "paper_count": 1
+  },
+  {
+   "id": "long-horizon-agent-tasks",
+   "name": "Long-horizon agent tasks",
+   "paper_count": 1
+  },
+  {
+   "id": "long-term-conversation-benchmarks",
+   "name": "Long-term conversation benchmarks",
+   "paper_count": 1
+  },
+  {
+   "id": "macosworld",
+   "name": "macOSWorld",
+   "paper_count": 1
+  },
+  {
+   "id": "mbpp",
+   "name": "MBPP",
+   "paper_count": 1
+  },
+  {
+   "id": "mcpeval",
+   "name": "MCPEval",
+   "paper_count": 1
+  },
+  {
+   "id": "mmsearch-plus",
+   "name": "MMSearch-Plus",
+   "paper_count": 1
+  },
+  {
+   "id": "mpe",
+   "name": "MPE",
+   "paper_count": 1
+  },
+  {
+   "id": "mt-bench",
+   "name": "MT-Bench",
+   "paper_count": 1
+  },
+  {
+   "id": "multi-agent-particle-environments",
+   "name": "Multi-Agent Particle Environments",
+   "paper_count": 1
+  },
+  {
+   "id": "multi-session-chat",
+   "name": "Multi-session chat",
+   "paper_count": 1
+  },
+  {
+   "id": "multiagentbench",
+   "name": "MultiAgentBench",
+   "paper_count": 1
+  },
+  {
+   "id": "multiarith",
+   "name": "MultiArith",
+   "paper_count": 1
+  },
+  {
+   "id": "natural-questions",
+   "name": "Natural Questions",
+   "paper_count": 1
+  },
+  {
+   "id": "news-datasets",
+   "name": "News datasets",
+   "paper_count": 1
+  },
+  {
+   "id": "newtonbench",
+   "name": "NewtonBench",
+   "paper_count": 1
+  },
+  {
+   "id": "pillagerbench",
+   "name": "PillagerBench",
+   "paper_count": 1
+  },
+  {
+   "id": "podcast-transcripts",
+   "name": "Podcast transcripts",
+   "paper_count": 1
+  },
+  {
+   "id": "popqa",
+   "name": "PopQA",
+   "paper_count": 1
+  },
+  {
+   "id": "pubhealth",
+   "name": "PubHealth",
+   "paper_count": 1
+  },
+  {
+   "id": "reasoning-benchmarks",
+   "name": "Reasoning benchmarks",
+   "paper_count": 1
+  },
+  {
+   "id": "robotics-tasks",
+   "name": "Robotics tasks",
+   "paper_count": 1
+  },
+  {
+   "id": "screenshots",
+   "name": "Screenshots",
+   "paper_count": 1
+  },
+  {
+   "id": "smac",
+   "name": "SMAC",
+   "paper_count": 1
+  },
+  {
+   "id": "smallville-simulation",
+   "name": "Smallville simulation",
+   "paper_count": 1
+  },
+  {
+   "id": "softwaredev",
+   "name": "SoftwareDev",
+   "paper_count": 1
+  },
+  {
+   "id": "squad",
+   "name": "SQuAD",
+   "paper_count": 1
+  },
+  {
+   "id": "strategyqa",
+   "name": "StrategyQA",
+   "paper_count": 1
+  },
+  {
+   "id": "superglue",
+   "name": "SuperGLUE",
+   "paper_count": 1
+  },
+  {
+   "id": "toolbench",
+   "name": "ToolBench",
+   "paper_count": 1
+  },
+  {
+   "id": "unrealzoo",
+   "name": "UnrealZoo",
+   "paper_count": 1
+  },
+  {
+   "id": "userbench",
+   "name": "UserBench",
+   "paper_count": 1
+  },
+  {
+   "id": "wmt-2014",
+   "name": "WMT 2014",
+   "paper_count": 1
+  },
+  {
+   "id": "workflow-automation-tasks",
+   "name": "Workflow automation tasks",
+   "paper_count": 1
+  }
+ ],
+ "fields": [
+  {
+   "name": "Agent Architectures",
+   "paper_count": 31
+  },
+  {
+   "name": "Multi-Agent Systems",
+   "paper_count": 22
+  },
+  {
+   "name": "Safety and Security",
+   "paper_count": 19
+  },
+  {
+   "name": "Scientific and Medical Agents",
+   "paper_count": 16
+  },
+  {
+   "name": "Benchmarks and Evaluation",
+   "paper_count": 16
+  },
+  {
+   "name": "Tool Use and APIs",
+   "paper_count": 16
+  },
+  {
+   "name": "Agent Memory",
+   "paper_count": 15
+  },
+  {
+   "name": "Embodied and Vision",
+   "paper_count": 12
+  },
+  {
+   "name": "Simulation and Society",
+   "paper_count": 11
+  },
+  {
+   "name": "Software Agents",
+   "paper_count": 10
+  },
+  {
+   "name": "Reinforcement Learning",
+   "paper_count": 10
+  },
+  {
+   "name": "Agent Systems",
+   "paper_count": 6
+  },
+  {
+   "name": "Retrieval and RAG",
+   "paper_count": 6
+  },
+  {
+   "name": "Reasoning and Inference",
+   "paper_count": 4
+  },
+  {
+   "name": "Model Architectures",
+   "paper_count": 4
+  },
+  {
+   "name": "Graph Learning",
+   "paper_count": 3
+  },
+  {
+   "name": "Multi-Agent RL",
+   "paper_count": 2
+  },
+  {
+   "name": "Alignment and Safety",
+   "paper_count": 1
+  }
+ ],
+ "citations": [
+  {
+   "source": "2303.11366",
+   "target": "2210.03629",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2305.10601",
+   "target": "2201.11903",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2203.11171",
+   "target": "2201.11903",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2205.11916",
+   "target": "2201.11903",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2210.03629",
+   "target": "2201.11903",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2310.11511",
+   "target": "2005.11401",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2404.16130",
+   "target": "2005.11401",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2308.08155",
+   "target": "2210.03629",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2308.00352",
+   "target": "2308.08155",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2307.16789",
+   "target": "2302.04761",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2305.15334",
+   "target": "2302.04761",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2306.05685",
+   "target": "2005.14165",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2402.05120",
+   "target": "2201.11903",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2310.08560",
+   "target": "2005.14165",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2302.04761",
+   "target": "2005.14165",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "1810.04805",
+   "target": "1706.03762",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2005.14165",
+   "target": "1706.03762",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2106.09685",
+   "target": "1810.04805",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2203.02155",
+   "target": "2005.14165",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2103.01955",
+   "target": "1707.06347",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "1502.05477",
+   "target": "1312.5602",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "1707.06347",
+   "target": "1502.05477",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "1710.10903",
+   "target": "1609.02907",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "1706.02275",
+   "target": "1707.06347",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2502.12110",
+   "target": "2310.08560",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2506.07398",
+   "target": "2502.12110",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2503.13657",
+   "target": "2308.08155",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2503.13657",
+   "target": "2308.00352",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2501.06322",
+   "target": "2308.08155",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2503.01935",
+   "target": "2308.08155",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2305.14325",
+   "target": "2201.11903",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2505.16067",
+   "target": "2404.13501",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2404.13501",
+   "target": "2310.08560",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2508.19828",
+   "target": "2310.08560",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2505.13044",
+   "target": "2310.08560",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2212.06817",
+   "target": "1706.03762",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2501.13956",
+   "target": "2310.08560",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2402.01030",
+   "target": "2210.03629",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2309.02427",
+   "target": "2210.03629",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2304.03442",
+   "target": "2210.03629",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2408.01875",
+   "target": "2305.15334",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2405.16533",
+   "target": "2307.16789",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2410.03439",
+   "target": "2302.04761",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2501.04227",
+   "target": "2308.00352",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2508.07407",
+   "target": "2303.11366",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2510.20733",
+   "target": "2305.14325",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2506.08292",
+   "target": "2305.14325",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2412.20138",
+   "target": "2308.08155",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2404.18021",
+   "target": "2304.05376",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2505.04997",
+   "target": "2402.01030",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2507.12806",
+   "target": "2504.16736",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2405.02957",
+   "target": "2308.08155",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2507.02097",
+   "target": "2308.08155",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2510.03215",
+   "target": "2310.08560",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2508.08997",
+   "target": "2506.07398",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2510.04851",
+   "target": "2506.07398",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2503.24047",
+   "target": "2404.18021",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2306.03314",
+   "target": "2304.03442",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2506.13131",
+   "target": "2402.01030",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  },
+  {
+   "source": "2304.07590",
+   "target": "2210.03629",
+   "relation": "CITES",
+   "citation_source": "curated-lineage",
+   "provenance": "curated-lineage",
+   "note": "high-confidence lineage subset; verify at source"
+  }
+ ],
+ "claims": [
+  {
+   "id": "2402.05120:1",
+   "text": "Increasing the number of sampled agents consistently improves task performance across reasoning benchmarks.",
+   "paper": "2402.05120",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2503.13657"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2503.13657"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2503.13657:1",
+   "text": "Increasing the number of agents does not improve task performance when coordination failures dominate the pipeline.",
+   "paper": "2503.13657",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2402.05120"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2402.05120"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2502.12110:1",
+   "text": "Agentic memory that the model organises itself improves long-horizon task performance across sessions.",
+   "paper": "2502.12110",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2505.16067"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2505.16067"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2505.16067:1",
+   "text": "Uncurated agentic memory degrades long-horizon task performance, so accumulation is not a substitute for curation.",
+   "paper": "2505.16067",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2502.12110"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2502.12110"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2302.04761:1",
+   "text": "Self-supervised tool-use training lets a language model decide when to call tools and improves downstream answer quality.",
+   "paper": "2302.04761",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2408.01875"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2408.01875"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2408.01875:1",
+   "text": "Rewriting the tool query at invocation time lets a language model reach unseen APIs without self-supervised tool-use training.",
+   "paper": "2408.01875",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "decrease",
+   "assertive": true,
+   "tension_with": [
+    "2302.04761"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "decrease",
+    "assertive": true,
+    "curated_tension_with": [
+     "2302.04761"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2402.08567:1",
+   "text": "Adversarial propagation through a network of multimodal agents amplifies exponentially, outpacing model-level defences.",
+   "paper": "2402.08567",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2502.11127"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2502.11127"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2502.11127:1",
+   "text": "Topology-guided treatment reduces adversarial propagation, so amplification in multi-agent networks is not inevitable.",
+   "paper": "2502.11127",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "decrease",
+   "assertive": true,
+   "tension_with": [
+    "2402.08567"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "decrease",
+    "assertive": true,
+    "curated_tension_with": [
+     "2402.08567"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2502.13172:1",
+   "text": "Agent memory systems do not isolate private user content, so ordinary retrieval paths leak it.",
+   "paper": "2502.13172",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2402.01586"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2402.01586"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2402.01586:1",
+   "text": "Checking agent memory before execution prevents the private data leaks that model-level refusal misses.",
+   "paper": "2402.01586",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "decrease",
+   "assertive": true,
+   "tension_with": [
+    "2502.13172"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "decrease",
+    "assertive": true,
+    "curated_tension_with": [
+     "2502.13172"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2210.03629:1",
+   "text": "Interleaving reasoning with tool actions improves agent success on long-horizon knowledge- intensive tasks.",
+   "paper": "2210.03629",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2308.03688"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2308.03688"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2308.03688:1",
+   "text": "A large gap separates conversational ability from long-horizon acting, so agent frameworks do not transfer their chat competence to long tasks.",
+   "paper": "2308.03688",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2210.03629"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2210.03629"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2508.19828:1",
+   "text": "Training an agent's memory operations with reinforcement learning improves later answers over static retrieval.",
+   "paper": "2508.19828",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2505.16067"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2505.16067"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2505.16067:2",
+   "text": "Uncurated memory accumulation degrades later answers, so stored experience is not a reliable substitute for retrieval.",
+   "paper": "2505.16067",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [
+    "2508.19828"
+   ],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [
+     "2508.19828"
+    ],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2310.08560:1",
+   "text": "Virtual context management over an external memory store lets a fixed-context model handle unbounded documents.",
+   "paper": "2310.08560",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2303.11366:1",
+   "text": "Verbal self-reflection stored in episodic memory improves agent success on later attempts.",
+   "paper": "2303.11366",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2308.00352:1",
+   "text": "Assigning specialised roles to agents through a standard-operating-procedure pipeline produces more reliable software artefacts than unstructured chat.",
+   "paper": "2308.00352",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2506.07398:1",
+   "text": "Hierarchical memory over inter-agent traces improves multi-agent coordination quality on long- horizon tasks.",
+   "paper": "2506.07398",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2305.14325:1",
+   "text": "Independent agents exchanging and revising answers improve factuality compared with a single model instance.",
+   "paper": "2305.14325",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2506.08292:1",
+   "text": "Casting multi-agent debate as a game makes belief updates converge instead of drifting toward confident unsupported answers.",
+   "paper": "2506.08292",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2402.01030:1",
+   "text": "Emitting executable code as agent action improves accuracy and composability over JSON-style actions.",
+   "paper": "2402.01030",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2309.02427:1",
+   "text": "A modular cognitive architecture with explicit memory and action spaces explains and improves language agent design.",
+   "paper": "2309.02427",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2103.01955:1",
+   "text": "PPO with a centralised critic is a strong, simple baseline for cooperative multi-agent games.",
+   "paper": "2103.01955",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "1707.06347:1",
+   "text": "A clipped surrogate objective gives stable policy improvement across continuous and discrete control.",
+   "paper": "1707.06347",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2201.11903:1",
+   "text": "Prompting with intermediate reasoning steps substantially improves arithmetic and symbolic reasoning.",
+   "paper": "2201.11903",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2203.11171:1",
+   "text": "Sampling diverse reasoning paths and taking the majority answer improves chain-of-thought accuracy.",
+   "paper": "2203.11171",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2205.11916:1",
+   "text": "Appending a task-agnostic prompt elicits reasoning on arithmetic and symbolic tasks.",
+   "paper": "2205.11916",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2305.10601:1",
+   "text": "Deliberate search over reasoning branches improves success on problems that require exploration.",
+   "paper": "2305.10601",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2005.11401:1",
+   "text": "Retrieval over an explicit document index improves knowledge-intensive generation and factual grounding.",
+   "paper": "2005.11401",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2404.16130:1",
+   "text": "Community-level graph summaries answer corpus-wide questions that local retrieval cannot reach.",
+   "paper": "2404.16130",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2310.11511:1",
+   "text": "Adaptive retrieval with self-critique improves factuality over always-retrieve pipelines.",
+   "paper": "2310.11511",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2501.13956:1",
+   "text": "Compressing past search trajectories into memory lets later reasoning steps reuse earlier conclusions.",
+   "paper": "2501.13956",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2507.07957:1",
+   "text": "Separating memory by modality and purpose improves recall for long-running assistants compared with one undifferentiated store.",
+   "paper": "2507.07957",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2510.04851:1",
+   "text": "Modular memory units that agents assemble at run time transfer across workflow automation tasks.",
+   "paper": "2510.04851",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2508.08997:1",
+   "text": "Role-conditioned intrinsic memory reduces the coordination overhead of a shared global memory log.",
+   "paper": "2508.08997",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "decrease",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "decrease",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2304.03442:1",
+   "text": "Agents with memory, reflection and planning reproduce believable social behaviour in a simulated town.",
+   "paper": "2304.03442",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2505.13044:1",
+   "text": "Human-like memory organisation with a consolidation routine reduces context pressure in long conversations.",
+   "paper": "2505.13044",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2306.05685:1",
+   "text": "Strong language models judge answer quality at near-human agreement on dialog benchmarks.",
+   "paper": "2306.05685",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2311.12983:1",
+   "text": "Real-world assistant tasks remain far beyond current assistants compared with human respondents.",
+   "paper": "2311.12983",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2307.16789:1",
+   "text": "Search-generated API instruction data lets a model execute multi-step calls over a very large API corpus.",
+   "paper": "2307.16789",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2305.15334:1",
+   "text": "Retrieval-aware API fine-tuning adapts model behaviour to documentation changes at inference time.",
+   "paper": "2305.15334",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2405.16533:1",
+   "text": "Composing tools into executable chains lets agents handle multi-step tasks that single-tool selection misses.",
+   "paper": "2405.16533",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2401.10019:1",
+   "text": "Current language agents often fail to recognise the safety risks of actions they are about to perform.",
+   "paper": "2401.10019",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2506.13131:1",
+   "text": "An evolutionary loop over agent-written programs discovers new algorithmic improvements scored by evaluators.",
+   "paper": "2506.13131",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2503.24047:1",
+   "text": "Tool integration and verification, not model scale, are the binding constraints for scientific agents.",
+   "paper": "2503.24047",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2504.16736:1",
+   "text": "Agent interoperability requires agreed message and capability-discovery protocols, and current proposals diverge.",
+   "paper": "2504.16736",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "neutral",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "neutral",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2503.01935:1",
+   "text": "Benchmarking multi-agent systems needs coordination and competition metrics beyond task success.",
+   "paper": "2503.01935",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "neutral",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "neutral",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2405.02957:1",
+   "text": "Agents that accumulate case experience in a simulated hospital improve medical decision quality over static prompting.",
+   "paper": "2405.02957",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "increase",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "increase",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2412.20138:1",
+   "text": "A pipeline of specialised trading agents with structured debate produces measurable portfolio behaviour.",
+   "paper": "2412.20138",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "positive",
+   "direction": "neutral",
+   "assertive": false,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "positive",
+    "direction": "neutral",
+    "assertive": false,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2108.07258:1",
+   "text": "Foundation models create broad capability gains and systemic risks that require coordinated mitigation.",
+   "paper": "2108.07258",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "increase",
+   "assertive": false,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "increase",
+    "assertive": false,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  },
+  {
+   "id": "2112.04359:1",
+   "text": "Language-model harms arise from social context as much as from model behaviour, so mitigation must be socio-technical.",
+   "paper": "2112.04359",
+   "stance": "reports",
+   "source": "editorial-distillation",
+   "confidence": "editorial",
+   "polarity": "negative",
+   "direction": "neutral",
+   "assertive": true,
+   "tension_with": [],
+   "provenance": {
+    "annotation": "editorial distillation of the paper's reported finding",
+    "polarity": "negative",
+    "direction": "neutral",
+    "assertive": true,
+    "curated_tension_with": [],
+    "note": "Not a quotation. Read the paper at its arXiv URL before relying on it."
+   }
+  }
+ ]
+}
