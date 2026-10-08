@@ -9,8 +9,10 @@ name: pages
 #   2. verify it — the Node checker boots the *published* assets/site.js against the
 #      freshly built snapshot and replays every recorded engine answer through it, so a
 #      build that would answer differently from the API never reaches a reader;
-#   3. upload the verified folder as the Pages artefact.
+#   3. upload the verified folder as the Pages artefact (from `main`) and deploy it.
 # A failing verification fails the deploy: the published site is never an unverified one.
+# On any other branch the workflow stops after (2): the artefact is built and verified, so a
+# change is proven before it is merged, but only `main` publishes.
 
 on:
   # `main` is the published site. The working branch is listed too so that a change to the
@@ -89,18 +91,29 @@ jobs:
           PY
 
       - name: Configure Pages (enables the Pages site on the first run)
+        if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
         with:
           # the workflow token carries `pages: write`, so a repository that has never had
-          # Pages switched on gets the site created here instead of failing the deploy
+          # Pages switched on gets the site created here instead of failing the deploy.
+          # Creating the *site* additionally needs repository admin rights: if this step is
+          # ever red with "Resource not accessible by integration", switch Pages on once in
+          # Settings → Pages → Source: GitHub Actions and re-run.
           enablement: true
 
       - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
         with:
           path: site
 
+      - name: Not publishing from this branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::notice title=verified, not published::This run built and verified the Pages artefact. The site is published from 'main', so merge to update the live URL."
+
   deploy:
     name: deploy to GitHub Pages
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:
