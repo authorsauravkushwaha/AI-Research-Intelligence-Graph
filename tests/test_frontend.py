@@ -46,3 +46,38 @@ def test_the_planner_card_and_engine_strip_are_present():
     assert 'api("/api/plan"' in app
     assert 'api("/api/services")' in app
     assert "/vendor/three.module.js" in app
+
+
+def test_the_markup_is_balanced():
+    """Hand-written HTML: an unclosed <div> silently breaks the layout, so check it."""
+    from html.parser import HTMLParser
+
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
+            "param", "source", "track", "wbr"}
+
+    class Balanced(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=True)
+            self.stack: list[tuple[str, int]] = []
+            self.problems: list[str] = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag not in VOID:
+                self.stack.append((tag, self.getpos()[0]))
+
+        def handle_endtag(self, tag):
+            if tag in VOID:
+                return
+            if not self.stack:
+                self.problems.append(f"</{tag}> on line {self.getpos()[0]} closes nothing")
+                return
+            open_tag, line = self.stack.pop()
+            if open_tag != tag:
+                self.problems.append(f"<{open_tag}> (line {line}) closed by </{tag}> on line {self.getpos()[0]}")
+
+    parser = Balanced()
+    parser.feed((ROOT / "frontend" / "index.html").read_text(encoding="utf-8"))
+    parser.close()
+    leftover = [f"<{tag}> on line {line}" for tag, line in parser.stack]
+    assert not parser.problems, parser.problems
+    assert not leftover, f"unclosed elements: {leftover}"
