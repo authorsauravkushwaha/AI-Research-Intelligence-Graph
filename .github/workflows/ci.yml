@@ -224,7 +224,11 @@ jobs:
             tail -40 "$RUNNER_TEMP/dotnet.log"
             exit 1
           fi
-          dotnet run -c Release --project NexusExport.csproj --no-build -- test
+          if ! dotnet run -c Release --project NexusExport.csproj --no-build -- test > "$RUNNER_TEMP/dotnet-test.log" 2>&1; then
+            echo "::error title=dotnet self-test failed::$(tail -12 "$RUNNER_TEMP/dotnet-test.log" | tr '\n' '|')"
+            cat "$RUNNER_TEMP/dotnet-test.log"
+            exit 1
+          fi
 
       - name: Kotlin — kotlinc from npm (the same recipe the README documents), self-test
         id: kotlin_build
