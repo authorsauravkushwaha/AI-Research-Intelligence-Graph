@@ -19,6 +19,8 @@ HTTP / UI  →  intelligence  →  tools  →  query interface  →  store + alg
 | Intelligence | `backend/engine/`, `backend/agents/`, `backend/rag/`, `backend/services/` | Gap scoring, agent loop, GraphRAG retrieval, reports/exports |
 | Tools | `backend/agents/tools.py` | 13 research tools — one implementation, three consumers (API, agent, MCP) |
 | Query interface | `backend/graph/factory.py`, `backend/store/memory_store.py`, `backend/graph/neo4j_store.py` | One interface, two interchangeable engines |
+| Planner | `backend/services/planner.py` + `polyglot/kotlin/` | NEXUS DSL → parameterised Cypher; the Kotlin sidecar is the reference, the Python port is the fallback, and both are pinned to `tests/data/planner_parity.json` |
+| Sidecar status | `backend/services/sidecars.py` (`GET /api/services`) | Reports which polyglot services are live and what answers instead — never a silent substitution |
 | Algorithms | `native/` + `backend/algorithms/kernel.py` | C++ kernel with process isolation and Python fallbacks |
 | Corpus | `scripts/build_corpus.py`, `data/demo/` | Validated, provenance-labelled dataset |
 
@@ -116,7 +118,33 @@ evidence paths, and colour-codes by node type/community/metric.
 
 ---
 
-## 7. Security and safety
+## 7. Query planning: two implementations, one contract
+
+The graph views need *parameterised* Cypher for a small, closed DSL
+(`topic:"…" type in (Paper, Method) rel in (CITES) depth<=2 year>=2022 limit 60`).
+That translation is security-critical, so it lives in a language with sealed types and
+exhaustive matching — Kotlin: `polyglot/kotlin/NexusPlanner.kt` parses the DSL into an AST
+and plans it, and the same AST drives the fallback traversal engine in that sidecar.
+
+`backend/services/planner.py` is a line-for-line port of the same rules and answers when
+the sidecar is not running. Three things keep the pair honest:
+
+1. **A shared contract** — `ok`, `query`, `cypher`, `params`, `explanation`, `cost`, plus
+   `engine` and `source` (`sidecar` | `python-fallback`) so a caller always knows which
+   one produced the plan.
+2. **A captured fixture** — `tests/data/planner_parity.json` holds real JVM output;
+   `tests/test_planner.py` fails the build if the port drifts from it.
+3. **A live comparison** — `scripts/compare_planners.py --url … | --jar …` replays the
+   fixture plus any extra DSL against a running reference planner (CI runs both).
+
+Neither planner ever interpolates a user value: labels and relationship types come from
+whitelists, and everything else travels as a bind parameter. `type in (Paper, SecretVault)`
+is refused with the allowed values, and hostile text such as `... DETACH DELETE n` ends up
+in `params.q`, where the full-text index tokenises it.
+
+---
+
+## 8. Security and safety
 
 - Secrets only via environment variables; `.env` git-ignored; the API exposes **capability
   booleans**, never keys.
@@ -130,7 +158,7 @@ evidence paths, and colour-codes by node type/community/metric.
 
 ---
 
-## 8. Why this survives a demo
+## 9. Why this survives a demo
 
 | Failure | Behaviour |
 | --- | --- |

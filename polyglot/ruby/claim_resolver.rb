@@ -367,6 +367,97 @@ end
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+# --------------------------------------------------------------- engine API --
+module Nexus
+  # Run the resolver over a decoded payload ({"claims" => [...]} and/or
+  # {"abstracts" => [...]}). The CLI and the HTTP mode both call this, so the two
+  # entry points can never produce different answers.
+  def self.analyse(payload)
+    resolver = Resolver.new
+    if payload['abstracts']
+      payload['abstracts'].each do |a|
+        next unless a['abstract']
+
+        resolver.add(resolver.claims_from_abstract(a['abstract'].to_s, paper_id: a['paper_id']))
+      end
+    end
+    resolver.add(payload['claims'].to_a) if payload['claims']
+    {
+      'engine' => 'nexus-claim-resolver-ruby',
+      'version' => '1.0.0',
+      'claims' => resolver.claims.map do |c|
+        { 'id' => c.id, 'paper_id' => c.paper_id, 'text' => c.text, 'subject' => c.subject,
+          'predicate' => c.predicate, 'direction' => c.direction, 'negated' => c.negated,
+          'strength' => c.strength, 'source' => c.source }
+      end,
+      'conflicts' => resolver.conflicts.map do |f|
+        { 'claim_a' => f.claim_a.id, 'claim_b' => f.claim_b.id, 'paper_a' => f.claim_a.paper_id,
+          'paper_b' => f.claim_b.paper_id, 'score' => f.score, 'kind' => f.kind, 'reasons' => f.reasons }
+      end
+    }
+  end
+
+  # Minimal HTTP/1.1 service around {Nexus.analyse} — the contract the Python API
+  # expects at NEXUS_CLAIM_URL (POST /resolve, GET /health). Stdlib only: no gems,
+  # no framework, nothing to install. Sockets do not exist under WASI, so this mode
+  # needs a native CRuby (`ruby claim_resolver.rb --serve 8093`).
+  def self.serve(port)
+    require 'socket'
+    server = TCPServer.new('0.0.0.0', port)
+    warn "nexus-claim-resolver-ruby listening on 0.0.0.0:#{port}"
+    loop do
+      socket = server.accept
+      Thread.new(socket) do |sock|
+        begin
+          handle(sock)
+        rescue StandardError => e
+          warn "request failed: #{e.class}: #{e.message}"
+        ensure
+          sock.close rescue nil
+        end
+      end
+    end
+  end
+
+  def self.handle(socket)
+    request = socket.gets
+    return unless request
+
+    method, path, = request.split(' ')
+    headers = {}
+    while (line = socket.gets)
+      break if line.strip.empty?
+
+      key, value = line.split(':', 2)
+      headers[key.to_s.strip.downcase] = value.to_s.strip
+    end
+    length = headers['content-length'].to_i
+    body = length.positive? ? socket.read(length).to_s : ''
+
+    status, payload = respond(method, path, body)
+    socket.write("HTTP/1.1 #{status} #{status == 200 ? 'OK' : 'Bad Request'}\r\n")
+    socket.write("Content-Type: application/json; charset=utf-8\r\n")
+    socket.write("Access-Control-Allow-Origin: *\r\n")
+    socket.write("Access-Control-Allow-Headers: content-type\r\n")
+    socket.write("Content-Length: #{payload.bytesize}\r\n")
+    socket.write("Connection: close\r\n\r\n")
+    socket.write(payload)
+  end
+
+  def self.respond(method, path, body)
+    route = path.to_s.split('?').first.to_s
+    return [200, JSON.generate('ok' => true, 'engine' => 'nexus-claim-resolver-ruby',
+                              'version' => '1.0.0', 'ruby' => RUBY_VERSION)] if route == '/health'
+    return [200, JSON.generate('ok' => true)] if method == 'OPTIONS'
+    return [400, JSON.generate('ok' => false, 'error' => 'POST /resolve expects a JSON body')] unless route == '/resolve'
+
+    payload = JSON.parse(body.to_s)
+    [200, JSON.generate(analyse(payload))]
+  rescue JSON::ParserError => e
+    [400, JSON.generate('ok' => false, 'error' => "invalid JSON: #{e.message}")]
+  end
+end
+
 if __FILE__ == $PROGRAM_NAME
   resolver = Nexus::Resolver.new
 
@@ -442,27 +533,12 @@ if __FILE__ == $PROGRAM_NAME
       end
     )
 
+  when '--serve'
+    Nexus.serve((ARGV[1] || ENV['NEXUS_CLAIM_PORT'] || '8093').to_i)
+
   else
     raw = ARGV[0] ? File.read(ARGV[0]) : $stdin.read
-    payload = JSON.parse(raw)
-    if payload['abstracts']
-      payload['abstracts'].each do |a|
-        resolver.add(resolver.claims_from_abstract(a['abstract'].to_s, paper_id: a['paper_id'])) if a['abstract']
-      end
-    end
-    resolver.add(payload['claims'].to_a) if payload['claims']
-    puts JSON.generate(
-      'engine' => 'nexus-claim-resolver-ruby',
-      'version' => '1.0.0',
-      'claims' => resolver.claims.map do |c|
-        { 'id' => c.id, 'paper_id' => c.paper_id, 'text' => c.text, 'subject' => c.subject,
-          'predicate' => c.predicate, 'direction' => c.direction, 'negated' => c.negated,
-          'strength' => c.strength, 'source' => c.source }
-      end,
-      'conflicts' => resolver.conflicts.map do |f|
-        { 'claim_a' => f.claim_a.id, 'claim_b' => f.claim_b.id, 'paper_a' => f.claim_a.paper_id,
-          'paper_b' => f.claim_b.paper_id, 'score' => f.score, 'kind' => f.kind, 'reasons' => f.reasons }
-      end
-    )
+    puts JSON.generate(Nexus.analyse(JSON.parse(raw)))
   end
 end
+

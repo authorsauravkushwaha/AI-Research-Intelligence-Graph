@@ -1,0 +1,322 @@
+{
+  "description": "Plans produced by the Kotlin planner (polyglot/kotlin, engine nexus-kotlin-planner) running on CRuby-free OpenJDK: `java -jar planner.jar --plan <dsl>` or GET /api/plan?q=<dsl>. Captured from the JVM itself; tests/test_planner.py fails when backend/services/planner.py drifts from these answers.",
+  "engine": "nexus-kotlin-planner",
+  "verified_with": "OpenJDK 25.0.2 (jdk4py wheel) + kotlinc 2.4.21 (npm package kotlin-compiler)",
+  "queries": [
+    {
+      "dsl": "topic:\"AI Agents\" type in (Paper, Method) depth<=3 limit 5000",
+      "plan": {
+        "ok": true,
+        "query": {
+          "text": "AI Agents",
+          "labels": [
+            "Paper",
+            "Method"
+          ],
+          "relationships": [],
+          "depth": 3,
+          "limit": 500
+        },
+        "cypher": "CALL db.index.fulltext.queryNodes('nexus-fulltext', $q) YIELD node AS n, score\nWHERE score > 0.0 AND ('Paper' IN labels(n) OR 'Method' IN labels(n))\nRETURN n, score ORDER BY score DESC LIMIT $limit",
+        "params": {
+          "q": "AI Agents",
+          "limit": 500
+        },
+        "explanation": [
+          "Restricted scan to labels: Paper, Method.",
+          "Free text 'AI Agents' handled by the full-text index (tokenised, relevance-ranked)."
+        ],
+        "cost": {
+          "depth": 3,
+          "fanout": 8.0,
+          "seeds": 200,
+          "estimated_nodes_visited": 3400,
+          "budget": 4000,
+          "strategy": "fulltext -> expand",
+          "safe": true
+        }
+      }
+    },
+    {
+      "dsl": "author:\"Yao\" type in (Paper) rel in (CITES, STUDIES) limit 25",
+      "plan": {
+        "ok": true,
+        "query": {
+          "text": null,
+          "labels": [
+            "Paper"
+          ],
+          "relationships": [
+            "CITES",
+            "STUDIES"
+          ],
+          "depth": 1,
+          "limit": 25
+        },
+        "cypher": "MATCH (n:Paper)\nWHERE toLower(n.name) CONTAINS toLower($name) AND (n)-[CITES|STUDIES]-()\nRETURN n\nORDER BY coalesce(n.pagerank, 0.0) DESC\nLIMIT $limit",
+        "params": {
+          "name": "Yao",
+          "limit": 25
+        },
+        "explanation": [
+          "Restricted scan to labels: Paper.",
+          "Applied structured filters: TextContains(field=name, value=Yao)",
+          "Relationship filter: edge type must be one of CITES, STUDIES.",
+          "Limit 25 keeps the first paint under a second (progressive expansion)."
+        ],
+        "cost": {
+          "depth": 1,
+          "fanout": 8.0,
+          "seeds": 25,
+          "estimated_nodes_visited": 25,
+          "budget": 4000,
+          "strategy": "label scan -> rank",
+          "safe": true
+        }
+      }
+    },
+    {
+      "dsl": "year>=2022 year<=2025 type in (Paper) limit 30",
+      "plan": {
+        "ok": true,
+        "query": {
+          "text": null,
+          "labels": [
+            "Paper"
+          ],
+          "relationships": [],
+          "depth": 1,
+          "limit": 30
+        },
+        "cypher": "MATCH (n:Paper)\nWHERE n.year >= $yearMin AND n.year <= $yearMax\nRETURN n\nORDER BY coalesce(n.pagerank, 0.0) DESC\nLIMIT $limit",
+        "params": {
+          "yearMin": 2022,
+          "yearMax": 2025,
+          "limit": 30
+        },
+        "explanation": [
+          "Restricted scan to labels: Paper.",
+          "Applied structured filters: IntAtLeast(field=year, value=2022), IntAtMost(field=year, value=2025)",
+          "Limit 30 keeps the first paint under a second (progressive expansion)."
+        ],
+        "cost": {
+          "depth": 1,
+          "fanout": 8.0,
+          "seeds": 30,
+          "estimated_nodes_visited": 30,
+          "budget": 4000,
+          "strategy": "label scan -> rank",
+          "safe": true
+        }
+      }
+    },
+    {
+      "dsl": "multi-agent coordination community detection",
+      "plan": {
+        "ok": true,
+        "query": {
+          "text": "multi-agent coordination community detection",
+          "labels": [],
+          "relationships": [],
+          "depth": 1,
+          "limit": 50
+        },
+        "cypher": "CALL db.index.fulltext.queryNodes('nexus-fulltext', $q) YIELD node AS n, score\nWHERE score > 0.0\nRETURN n, score ORDER BY score DESC LIMIT $limit",
+        "params": {
+          "q": "multi-agent coordination community detection",
+          "limit": 50
+        },
+        "explanation": [
+          "Free text 'multi-agent coordination community detection' handled by the full-text index (tokenised, relevance-ranked)."
+        ],
+        "cost": {
+          "depth": 1,
+          "fanout": 8.0,
+          "seeds": 50,
+          "estimated_nodes_visited": 50,
+          "budget": 4000,
+          "strategy": "fulltext -> expand",
+          "safe": true
+        }
+      }
+    },
+    {
+      "dsl": "topic:\"Agent Memory\" rel in (CITES) year>=2023 limit 40",
+      "plan": {
+        "ok": true,
+        "query": {
+          "text": "Agent Memory",
+          "labels": [],
+          "relationships": [
+            "CITES"
+          ],
+          "depth": 1,
+          "limit": 40
+        },
+        "cypher": "CALL db.index.fulltext.queryNodes('nexus-fulltext', $q) YIELD node AS n, score\nWHERE score > 0.0\nWITH n, score WHERE n.year >= $yearMin AND (n)-[CITES]-()\nRETURN n, score ORDER BY score DESC LIMIT $limit",
+        "params": {
+          "yearMin": 2023,
+          "q": "Agent Memory",
+          "limit": 40
+        },
+        "explanation": [
+          "Applied structured filters: IntAtLeast(field=year, value=2023)",
+          "Relationship filter: edge type must be one of CITES.",
+          "Free text 'Agent Memory' handled by the full-text index (tokenised, relevance-ranked).",
+          "Post-filter applied on indexed properties (bound parameters only)."
+        ],
+        "cost": {
+          "depth": 1,
+          "fanout": 8.0,
+          "seeds": 40,
+          "estimated_nodes_visited": 40,
+          "budget": 4000,
+          "strategy": "fulltext -> expand",
+          "safe": true
+        }
+      }
+    },
+    {
+      "dsl": "type in (Paper, SecretVault)",
+      "plan": {
+        "ok": false,
+        "error": "Unknown node type 'SecretVault'. Allowed: Paper, Author, Topic, Method, Dataset, Institution, Claim, Community"
+      }
+    },
+    {
+      "dsl": "rel in (CONTRADICTS) limit 10",
+      "plan": {
+        "ok": true,
+        "query": {
+          "text": null,
+          "labels": [],
+          "relationships": [
+            "CONTRADICTS"
+          ],
+          "depth": 1,
+          "limit": 10
+        },
+        "cypher": "MATCH (n)\nWHERE (n)-[CONTRADICTS]-()\nRETURN n\nORDER BY coalesce(n.pagerank, 0.0) DESC\nLIMIT $limit",
+        "params": {
+          "limit": 10
+        },
+        "explanation": [
+          "Relationship filter: edge type must be one of CONTRADICTS.",
+          "Limit 10 keeps the first paint under a second (progressive expansion)."
+        ],
+        "cost": {
+          "depth": 1,
+          "fanout": 8.0,
+          "seeds": 10,
+          "estimated_nodes_visited": 10,
+          "budget": 4000,
+          "strategy": "label scan -> rank",
+          "safe": true
+        }
+      }
+    },
+    {
+      "dsl": "topic:\"AI Agents\"",
+      "plan": {
+        "ok": true,
+        "query": {
+          "text": "AI Agents",
+          "labels": [],
+          "relationships": [],
+          "depth": 1,
+          "limit": 50
+        },
+        "cypher": "CALL db.index.fulltext.queryNodes('nexus-fulltext', $q) YIELD node AS n, score\nWHERE score > 0.0\nRETURN n, score ORDER BY score DESC LIMIT $limit",
+        "params": {
+          "q": "AI Agents",
+          "limit": 50
+        },
+        "explanation": [
+          "Free text 'AI Agents' handled by the full-text index (tokenised, relevance-ranked)."
+        ],
+        "cost": {
+          "depth": 1,
+          "fanout": 8.0,
+          "seeds": 50,
+          "estimated_nodes_visited": 50,
+          "budget": 4000,
+          "strategy": "fulltext -> expand",
+          "safe": true
+        }
+      }
+    },
+    {
+      "dsl": "   ",
+      "plan": {
+        "ok": false,
+        "error": "empty query: give free text, a topic:\"\u2026\" phrase, or a structured clause"
+      }
+    },
+    {
+      "dsl": "depth<=9 limit 99999 papers about evaluation",
+      "plan": {
+        "ok": true,
+        "query": {
+          "text": "9 papers about evaluation",
+          "labels": [],
+          "relationships": [],
+          "depth": 3,
+          "limit": 500
+        },
+        "cypher": "CALL db.index.fulltext.queryNodes('nexus-fulltext', $q) YIELD node AS n, score\nWHERE score > 0.0\nRETURN n, score ORDER BY score DESC LIMIT $limit",
+        "params": {
+          "q": "9 papers about evaluation",
+          "limit": 500
+        },
+        "explanation": [
+          "Free text '9 papers about evaluation' handled by the full-text index (tokenised, relevance-ranked)."
+        ],
+        "cost": {
+          "depth": 3,
+          "fanout": 8.0,
+          "seeds": 200,
+          "estimated_nodes_visited": 3400,
+          "budget": 4000,
+          "strategy": "fulltext -> expand",
+          "safe": true
+        }
+      }
+    },
+    {
+      "dsl": "author:\"Nakano\" type in (Method, Dataset, Community) limit 12",
+      "plan": {
+        "ok": true,
+        "query": {
+          "text": null,
+          "labels": [
+            "Method",
+            "Dataset",
+            "Community"
+          ],
+          "relationships": [],
+          "depth": 1,
+          "limit": 12
+        },
+        "cypher": "MATCH (n:Method|Dataset|Community)\nWHERE toLower(n.name) CONTAINS toLower($name)\nRETURN n\nORDER BY coalesce(n.pagerank, 0.0) DESC\nLIMIT $limit",
+        "params": {
+          "name": "Nakano",
+          "limit": 12
+        },
+        "explanation": [
+          "Restricted scan to labels: Method, Dataset, Community.",
+          "Applied structured filters: TextContains(field=name, value=Nakano)",
+          "Limit 12 keeps the first paint under a second (progressive expansion)."
+        ],
+        "cost": {
+          "depth": 1,
+          "fanout": 8.0,
+          "seeds": 12,
+          "estimated_nodes_visited": 12,
+          "budget": 4000,
+          "strategy": "label scan -> rank",
+          "safe": true
+        }
+      }
+    }
+  ]
+}

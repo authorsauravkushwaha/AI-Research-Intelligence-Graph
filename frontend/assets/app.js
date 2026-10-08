@@ -98,7 +98,7 @@ function route() {
   const view = VIEWS.includes(hash) ? hash : "home";
   $$(".view").forEach((el) => el.classList.toggle("active", el.id === `view-${view}`));
   $$("#nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === view));
-  if (view === "graph") Graph.ensure();
+  if (view === "graph") { Graph.ensure(); Graph.planner.ensure(); }
   if (view === "home") Home.load();
   if (view === "explorer") Explorer.ensureDefaults();
   if (view === "papers") Papers.ensure();
@@ -115,7 +115,10 @@ const Home = {
     if (this.loaded && !force) return;
     this.loaded = true;
     try {
-      const [health, dash, timeline] = await Promise.all([api("/api/health"), api("/api/dashboard"), api("/api/timeline")]);
+      const [health, dash, timeline, services] = await Promise.all([
+        api("/api/health"), api("/api/dashboard"), api("/api/timeline"), api("/api/services"),
+      ]);
+      this.services(services || {});
       this.health(health);
       this.cards(dash);
       this._years = timeline.papers_per_year;
@@ -189,6 +192,19 @@ const Home = {
       <div class="rowitem"><span class="t">${esc((c.text_a || "").slice(0, 120))}…</span>
       <span class="m">vs “${esc((c.text_b || "").slice(0, 110))}…” · score ${num(c.score, 2)} · ${esc(c.kind)} · hypothesis</span></div>`).join("")
       || '<p class="muted">no tensions detected in this scope</p>';
+  },
+  services(payload) {
+    const list = payload.sidecars || [];
+    if (!list.length) return;
+    $("#home-services").innerHTML = list.map((s) => `
+      <div class="rowitem">
+        <span class="t">${esc(s.language)} <span class="muted tiny">${esc(s.role)}</span></span>
+        <span class="m">${s.reachable
+          ? `<span class="pill green">live</span> ${esc(s.engine)} · ${esc(s.url)}`
+          : `${s.configured ? '<span class="pill">offline</span>' : '<span class="pill">not configured</span>'} → python: ${esc(s.fallback)}`}</span>
+      </div>`).join("");
+    const note = $("#services-note");
+    if (note) note.textContent = `${payload.summary}. Each engine has a Python fallback behind the same interface — a response always names the engine that answered.`;
   },
   provenance(p, engines) {
     $("#home-provenance").innerHTML = `
@@ -319,6 +335,37 @@ const Graph = {
   },
   color(label, colors) { return colors?.[label] || "#7dd3fc"; },
 
+  planner: {
+    ready: false,
+    ensure() {
+      if (this.ready) return;
+      this.ready = true;
+      const run = () => this.run();
+      $("#plan-run").addEventListener("click", run);
+      $("#plan-dsl").addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
+    },
+    async run() {
+      const dsl = $("#plan-dsl").value.trim();
+      if (!dsl) return;
+      $("#plan-engine").textContent = "planning…";
+      try {
+        const p = await api("/api/plan", { method: "POST", body: { query: dsl } });
+        const badge = p.source === "sidecar" ? "Kotlin planner (JVM sidecar)" : "Python planner (sidecar offline)";
+        $("#plan-engine").innerHTML = `<span class="pill ${p.source === "sidecar" ? "green" : "amber"}">${esc(p.engine)}</span> ${esc(badge)}`;
+        $("#plan-cypher").textContent = p.cypher;
+        const params = Object.entries(p.params || {}).map(([k, v]) => `$${k} = ${JSON.stringify(v)}`).join(" · ");
+        $("#plan-detail").innerHTML = `
+          <div class="muted">${esc(params || "no bind parameters")}</div>
+          <div>${(p.explanation || []).map((w) => `<div>• ${esc(w)}</div>`).join("")}</div>
+          <div class="muted">cost: ${esc(p.cost?.strategy || "")} · seeds ${p.cost?.seeds} · ~${p.cost?.estimated_nodes_visited} nodes (budget ${p.cost?.budget})</div>
+          <div class="safety">${esc(p.note || "")}</div>`;
+      } catch (err) {
+        $("#plan-engine").textContent = `rejected: ${err.message}`;
+        $("#plan-cypher").textContent = "";
+        $("#plan-detail").innerHTML = "";
+      }
+    },
+  },
   async load({ query = null, seeds = null, focus = null } = {}) {
     if (!this.ready) this.ensure();
     if (!this.init) return;

@@ -20,6 +20,9 @@ the API, so the demo needs one command and zero network access.
   caveat that attention is not quality.
 * **Live signals** — detected claim tensions and predicted links, both labelled as
   algorithmic hypotheses.
+* **Polyglot engines** — one row per sidecar (Kotlin planner, Go ingest, C# export, Ruby
+  claim resolver): live, offline, or not configured, the engine that answers, and the
+  Python fallback that takes over. Nothing here is required for the demo.
 
 ## 2 · Research Explorer
 
@@ -44,6 +47,12 @@ The 3D view (three.js + OrbitControls). Deliberately bounded:
 
 Predicted links render as dashed edges with a hypothesis tooltip, so inference is visually
 distinct from fact.
+
+* **Query planner** — a small card in the same overlay: type the NEXUS DSL (or press
+  Enter) and it shows the *parameterised* Cypher the system would run, the bind
+  parameters, the planner's explanation and its cost estimate — answered by the Kotlin
+  sidecar when it is up and by the Python port when it is not, with the engine named.
+  Language clauses outside the whitelist are refused with the allowed values listed.
 
 ## 4 · Research Gap Finder — the killer feature
 

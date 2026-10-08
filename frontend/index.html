@@ -108,6 +108,12 @@
       </div>
     </div>
 
+    <div class="panel" id="services-panel">
+      <h3>Polyglot engines <span class="muted">Kotlin · Go · C# · Ruby · C++ · Python</span></h3>
+      <div id="home-services" class="stack small"></div>
+      <p class="muted tiny" id="services-note">Each engine has a Python fallback behind the same interface; a response always names the engine that answered.</p>
+    </div>
+
     <div class="panel" id="corpus-panel">
       <h3>Corpus &amp; provenance</h3>
       <div id="home-provenance" class="provenance"></div>
@@ -190,6 +196,16 @@
             <button class="btn small ghost" id="graph-reset">Reset camera</button>
           </div>
           <p class="muted tiny" id="graph-stats">—</p>
+          <details class="planner-block">
+            <summary class="linkish">Query planner <span class="muted tiny">DSL → parameterised Cypher</span></summary>
+            <div class="field-row">
+              <input id="plan-dsl" aria-label="NEXUS query DSL" value='topic:"AI Agents" type in (Paper, Method) limit 40' />
+              <button class="btn primary small" id="plan-run">Plan</button>
+            </div>
+            <p class="muted tiny" id="plan-engine">Kotlin planner (JVM) — the Python port answers if the sidecar is down</p>
+            <pre class="code tiny" id="plan-cypher"></pre>
+            <div class="stack tiny" id="plan-detail"></div>
+          </details>
         </div>
       </div>
       <div class="graph-overlay right">

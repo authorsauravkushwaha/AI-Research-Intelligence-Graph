@@ -212,6 +212,16 @@ select[multiple] { min-height: 92px; }
 /* ------------------------------------------------------------ gap view */
 .killer-panel { border-color: rgba(167, 139, 250, .35); background: linear-gradient(160deg, rgba(167, 139, 250, .08), rgba(97, 228, 255, .05)), var(--panel); }
 .killer-head h2 { font-size: 1.5rem; color: #ddd0ff; }
+.planner-block { margin-top: .5rem; }
+.planner-block summary { cursor: pointer; font-size: .78rem; }
+.planner-block .field-row { margin: .45rem 0; }
+#plan-cypher {
+  margin: .35rem 0; padding: .5rem; max-height: 11rem; overflow: auto;
+  background: rgba(6, 12, 26, .72); border: 1px solid var(--line); border-radius: 8px;
+  font-family: var(--mono); font-size: .7rem; white-space: pre-wrap; word-break: break-word;
+}
+#plan-detail .safety { margin-top: .35rem; }
+
 .safety {
   margin-top: .6rem; font-size: .84rem; color: #ffe6ad;
   background: rgba(251, 191, 36, .08); border: 1px solid rgba(251, 191, 36, .3);

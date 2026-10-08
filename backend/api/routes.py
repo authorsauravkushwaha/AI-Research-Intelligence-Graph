@@ -26,6 +26,7 @@ from backend.agents.llm import LLMClient
 from backend.agents.tools import build_registry
 from backend.api.schemas import (
     AgentRequest,
+    PlanRequest,
     ExpandRequest,
     ExportRequest,
     GapRequest,
@@ -41,6 +42,8 @@ from backend.engine.gaps import SAFETY_NOTICE, GapEngine, score_model
 from backend.graph.factory import get_state
 from backend.rag.graphrag import GraphRAG
 from backend.services.export import export_graph
+from backend.services.planner import plan as plan_query
+from backend.services.sidecars import status as sidecar_status
 from backend.services.report import ReportService
 
 router = APIRouter(prefix="/api")
@@ -644,6 +647,42 @@ def export_cypher(limit: int = Query(default=400, ge=10, le=2000)) -> PlainTextR
 @router.post("/ask", tags=["agent"], summary="Alias for /api/agent (used by the demo script)")
 def ask(request: AgentRequest) -> dict[str, Any]:
     return agent(request)
+
+
+@router.post("/plan", tags=["meta"], summary="Plan a graph query — parameterised Cypher, explanation, cost")
+def plan(request: PlanRequest) -> dict[str, Any]:
+    """The query planner behind the graph views.
+
+    The Kotlin planner (polyglot/kotlin) is the reference implementation; when the
+    sidecar is not running the Python port in `backend/services/planner.py` answers.
+    Either way the response carries the DSL, the parameterised Cypher, the bind
+    parameters, a human explanation and a cost estimate — and names its engine.
+    """
+    return _plan_payload(request.query)
+
+
+@router.get("/plan", tags=["meta"], summary="Same planner, reachable with a plain query string")
+def plan_get(
+    q: str = Query(min_length=1, max_length=400, description="NEXUS query DSL"),
+) -> dict[str, Any]:
+    return _plan_payload(q)
+
+
+def _plan_payload(dsl: str) -> dict[str, Any]:
+    payload = plan_query(dsl)
+    payload["dsl"] = dsl
+    if not payload.get("ok"):
+        raise HTTPException(status_code=422, detail=payload.get("error", "query rejected"))
+    payload["note"] = (
+        "Cypher here is generated, not executed: labels and relationship types come from the "
+        "whitelist and every value is a bind parameter."
+    )
+    return payload
+
+
+@router.get("/services", tags=["meta"], summary="Polyglot sidecars: what is live, what falls back to Python")
+def services() -> dict[str, Any]:
+    return sidecar_status()
 
 
 @router.get("/echo", tags=["meta"], include_in_schema=False)

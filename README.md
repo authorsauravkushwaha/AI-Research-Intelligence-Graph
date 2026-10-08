@@ -13,7 +13,7 @@ not a chat box — to find **research gaps**, explain **contradictions**, predic
   <img alt="neo4j" src="https://img.shields.io/badge/Neo4j-5.x%20%2B%20GDS-008cc1">
   <img alt="llm" src="https://img.shields.io/badge/LLM-optional%20(offline%20fallback)-green">
   <img alt="frontend" src="https://img.shields.io/badge/3D-three.js%20r160%20(vendored)-000000">
-  <img alt="tests" src="https://img.shields.io/badge/tests-53%20passing-brightgreen">
+  <img alt="tests" src="https://img.shields.io/badge/tests-74%20passing-brightgreen">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
@@ -217,7 +217,7 @@ The project uses each language where it genuinely fits — no token gesture port
 | **Python 3.11+** | API, GraphRAG, agent, gap engine, ingestion | Fast iteration on the parts that are the product |
 | **C++17** | `native/` graph kernel (`nexus-kernel`) | Real algorithms with zero dependencies, process-isolated, ~100 ms PageRank on 20k nodes |
 | **Cypher** | `cypher/queries/*.cypher`, Neo4j schema | Parameterised, reviewable queries instead of string-built ones |
-| **Kotlin (JVM)** | `polyglot/kotlin/` query planner: natural language → Cypher plan | JVM type safety for a compiler-like component; runs as the `:8092` planner sidecar |
+| **Kotlin (JVM)** | `polyglot/kotlin/` query planner: NEXUS DSL → parameterised Cypher plan | JVM type safety for a compiler-like component (sealed AST, exhaustive `when`), plus an HTTP fallback traversal engine — runs as the `:8092` sidecar and answers `POST /api/plan` |
 | **Ruby** | `polyglot/ruby/claim_resolver.rb` | Text/DSL-friendly scripting for claim normalisation and opposition scoring |
 | **Go** | `polyglot/go/` ingestion + embeddings sidecar (`:8090`) | Static binary, cheap concurrency for fetch/parse/embed work |
 | **C# / .NET** | `polyglot/dotnet/` export sidecar (`:8091`) | First-class XML/GraphML tooling for report export |
@@ -230,10 +230,14 @@ Python implementation when it is not (`NEXUS_INGEST_URL`, `NEXUS_EXPORT_URL`,
 depends on a language runtime that is not Python.
 
 Which of the sidecars has actually been *executed* is tracked honestly in
-[`polyglot/README.md`](polyglot/README.md): the C++ kernel and the Ruby claim resolver run
-in this repository's own test path (the Ruby one on CRuby 3.2 via `ruby.wasm`, then
-compared claim-by-claim against the Python engine), Kotlin/Go/.NET compile and self-test in
-CI, and any step a runner cannot provide is an explicit warning rather than a silent pass.
+[`polyglot/README.md`](polyglot/README.md). The C++ kernel runs under `pytest`, the Kotlin
+planner was compiled with kotlinc 2.4.21 and exercised on OpenJDK 25 (`--test`, `/api/plan`,
+`GET /api/services`), and the Ruby claim resolver runs on CRuby 3.2 via `ruby.wasm` and is
+compared claim-by-claim against the Python engine. Kotlin, Go, .NET and Ruby are also built
+and self-tested by the `polyglot` CI job; any step a runner cannot provide is an explicit
+warning rather than a silent pass. Two cross-language parity checks make this measurable:
+`scripts/compare_claim_engines.py` (Ruby ↔ Python claims) and `scripts/compare_planners.py`
+(Kotlin ↔ Python query plans, pinned by `tests/data/planner_parity.json`).
 
 ---
 
@@ -401,6 +405,8 @@ These rules are enforced in code, tests and copy — not just in the README:
 | `POST` | `/api/report` | Research Opportunity Report (JSON) |
 | `POST` | `/api/report/markdown` | The same report as Markdown |
 | `POST` | `/api/export` | GraphML · CSV · JSON · Cypher |
+| `POST` | `/api/plan` | NEXUS DSL → parameterised Cypher + explanation + cost (Kotlin planner, Python fallback) |
+| `GET` | `/api/services` | Which polyglot sidecars are live, and what answers instead |
 
 ```bash
 curl -s localhost:8000/api/health | jq .store
@@ -464,8 +470,8 @@ comments in [`.env.example`](.env.example).
 ## Testing
 
 ```bash
-python -m pytest -q          # 53 tests: corpus, store, kernel, gaps, agent, API, MCP, frontend
-./scripts/smoke.sh           # 41 live HTTP checks against a running server (incl. SSE)
+python -m pytest -q          # 74 tests: corpus, store, kernel, gaps, agent, planner, API, MCP, frontend
+./scripts/smoke.sh           # 46 live HTTP checks against a running server (incl. SSE)
 python run.py --check        # installation preflight
 python scripts/build_corpus.py --check   # corpus validator (ids, dedupe, provenance)
 make -C native test          # native kernel self-tests
@@ -519,7 +525,7 @@ AI-Research-Intelligence-Graph/
 ├── native/             C++17 graph kernel (PageRank, Louvain, betweenness, link prediction)
 ├── polyglot/           Kotlin planner · Ruby claim resolver · Go ingest · C# export · Java service
 ├── scripts/            corpus builder/validator, live smoke sweep
-├── tests/              pytest suite (53 tests)
+├── tests/              pytest suite (74 tests)
 ├── docker-compose.yml  Neo4j 5.26 + GDS + APOC + API
 └── run.py              launcher with preflight checks
 ```

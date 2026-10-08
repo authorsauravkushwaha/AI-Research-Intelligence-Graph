@@ -5,7 +5,7 @@ Everything below runs from a clean checkout with **no Neo4j, no API key and no n
 ```bash
 pip install -r backend/requirements.txt
 python run.py                  # → http://localhost:8000
-./scripts/smoke.sh             # optional: prove all 41 endpoints respond before you present
+./scripts/smoke.sh             # optional: prove all 46 endpoints respond before you present
 ```
 
 Have two terminals ready: one running the server, one free for `curl` and exports.
@@ -45,6 +45,12 @@ Switch to **Knowledge Graph**. It renders in 3D (drag to rotate, wheel to zoom).
 4. In the path tool, connect `paper:2210.03629` → `topic:agent-memory` and watch the
    evidence path highlight. "That highlight is the shortest relationship path the engine
    found — the same primitive the gap engine uses."
+5. Open **Query planner**, press **Plan** on the prefilled DSL: the card shows the
+   *parameterised* Cypher, the bind parameters, the explanation and the cost estimate.
+   "That plan came from the Kotlin sidecar on :8092 — `engine: nexus-kotlin-planner`.
+   Every value is a bind parameter, labels come from a whitelist: try
+   `type in (Paper, SecretVault)` and it refuses instead of guessing. If the JVM is not
+   running, the Python port answers the identical plan — the badge says which one ran."
 
 ## 3 · FIND RESEARCH GAPS — the killer feature (75 s)
 
@@ -124,8 +130,8 @@ Optionally show `docker compose up -d`, then `/api/health` reporting
 
 ```bash
 python run.py --check          # dependencies, corpus, kernel, capability flags
-python -m pytest -q            # 53 tests
-./scripts/smoke.sh             # 41 live endpoint checks
+python -m pytest -q            # 74 tests
+./scripts/smoke.sh             # 46 live endpoint checks
 curl -s localhost:8000/api/health | python3 -m json.tool | head -30
 ```
 

@@ -82,6 +82,22 @@ hit GET  '/api/export/cypher?limit=20'
 hit POST /api/agent '{"question":"What are the most important papers?","top_k":8}'
 hit POST /api/agent '{"question":"Which claims contradict each other?","top_k":8}'
 
+# Query planner: the Kotlin sidecar answers when it is up, the Python port otherwise —
+# either way the response must carry Cypher, bind parameters, an explanation and a cost.
+hit POST /api/plan '{"query":"topic:\"AI Agents\" type in (Paper, Method) rel in (CITES) limit 30"}'
+hit GET  '/api/plan?q=year%3E%3D2023%20type%20in%20(Paper)%20limit%2020'
+hit POST /api/plan '{"query":"rel in (CONTRADICTS) limit 10"}'
+hit GET  /api/services
+
+# A label outside the whitelist must be refused, never silently planned.
+code=$(curl -sS -o "$TMP/last" -w '%{http_code}' -X POST "$BASE/api/plan" \
+  -H 'content-type: application/json' -d '{"query":"type in (Paper, SecretVault)"}' --max-time 30)
+if [ "$code" = "422" ] && grep -q 'SecretVault' "$TMP/last"; then
+  PASS=$((PASS + 1)); printf 'ok   %-6s %-56s %s  %s\n' POST /api/plan "<reject>" "$code" "$(head -c 60 "$TMP/last")"
+else
+  FAIL=$((FAIL + 1)); printf 'FAIL %-6s %-56s %s  %s\n' POST /api/plan "<reject>" "$code" "$(head -c 80 "$TMP/last")"
+fi
+
 # The frontend bundle must be served without any external CDN reference.
 hit GET  /
 hit GET  /assets/app.js

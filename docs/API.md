@@ -208,6 +208,51 @@ each with `elapsed_ms`. `POST /api/ask` is an alias for scripted demos.
 
 ---
 
+## Query planning (polyglot)
+
+### `POST /api/plan` · `GET /api/plan?q=`
+
+Turns the NEXUS query DSL into **parameterised Cypher** — plus the explanation and the
+cost estimate the graph views use. The **Kotlin planner** (`polyglot/kotlin`, the
+reference implementation) answers when its sidecar is reachable; otherwise the Python port
+in `backend/services/planner.py` produces the identical plan. The response always names
+the engine that ran.
+
+```jsonc
+POST /api/plan {"query": "topic:\"Agent Memory\" type in (Paper, Claim) rel in (CITES) limit 30"}
+{
+  "ok": true,
+  "engine": "nexus-kotlin-planner",     // or nexus-python-planner
+  "source": "sidecar",                  // or python-fallback
+  "dsl": "topic:\"Agent Memory\" …",
+  "query": {"text": "Agent Memory", "labels": ["Paper", "Claim"], "relationships": ["CITES"],
+            "depth": 1, "limit": 30},
+  "cypher": "CALL db.index.fulltext.queryNodes('nexus-fulltext', $q) YIELD node AS n, score\n…",
+  "params": {"q": "Agent Memory", "limit": 30},   // every value bound, never interpolated
+  "explanation": ["Restricted scan to labels: Paper, Claim.", "…"],
+  "cost": {"depth": 1, "fanout": 8.0, "seeds": 30, "estimated_nodes_visited": 30,
+           "budget": 4000, "strategy": "fulltext -> expand", "safe": true},
+  "note": "Cypher here is generated, not executed: …"
+}
+```
+
+Labels and relationship types come from a whitelist, so `type in (Paper, SecretVault)`
+is **422** with the allowed values listed. DSL clauses: `topic:"…"`, `author:"…"`,
+`year>=NNNN`, `year<=NNNN`, `depth<=N`, `limit N`, `type in (…)`, `rel in (…)`;
+anything else is free text for the full-text index.
+
+### `GET /api/services`
+
+Which polyglot sidecars are configured, reachable right now, and what answers instead
+when they are not:
+
+```jsonc
+{"sidecars": [{"name": "planner", "language": "Kotlin (JVM)", "url": "http://127.0.0.1:8092",
+               "configured": true, "reachable": true, "engine": "nexus-kotlin-planner",
+               "fallback": "backend/services/planner.py::python_plan", "role": "…"}, …],
+ "live": 1, "total": 4, "summary": "1 of 4 polyglot sidecars are reachable; …"}
+```
+
 ## Reports and exports
 
 ### `POST /api/report`

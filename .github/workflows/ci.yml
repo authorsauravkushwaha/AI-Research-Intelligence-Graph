@@ -104,9 +104,15 @@ jobs:
   polyglot:
     name: polyglot sidecars · kotlin · go · dotnet · ruby
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python deps for the parity scripts
+        run: pip install -r backend/requirements.txt
 
       - name: Go — vet, build, self-test
         run: |
@@ -121,37 +127,50 @@ jobs:
           dotnet build -c Release NexusExport.csproj
           dotnet run -c Release --project NexusExport.csproj -- test
 
-      - name: Kotlin — compile with the embeddable compiler and self-test the planner
+      - name: Kotlin — kotlinc from npm (the same recipe the README documents), self-test
         run: |
-          cd polyglot/kotlin
-          curl -sSLo /tmp/kotlin-compiler.zip \
-            https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compiler/1.9.24/kotlin-compiler-1.9.24.zip
-          unzip -q /tmp/kotlin-compiler.zip -d /tmp/kotlinc
-          /tmp/kotlinc/kotlinc/bin/kotlinc src/main/kotlin/NexusPlanner.kt -include-runtime -d /tmp/planner.jar
+          npm pack kotlin-compiler
+          tar xzf kotlin-compiler-*.tgz
+          package/bin/kotlinc polyglot/kotlin/src/main/kotlin/NexusPlanner.kt -include-runtime -d /tmp/planner.jar
           java -jar /tmp/planner.jar --test
-          java -jar /tmp/planner.jar --plan "papers about agent memory since 2023"
+          java -jar /tmp/planner.jar --plan 'topic:"AI Agents" type in (Paper, Method) limit 40'
 
-      - name: Ruby — self-test the claim resolver
+      - name: Kotlin planner — live sidecar, plan endpoint and Python parity
         run: |
-          if command -v ruby >/dev/null 2>&1; then
-            ruby polyglot/ruby/claim_resolver.rb --test
-          else
-            echo "::warning::no system ruby on this runner; the resolver was verified on CRuby 3.2 (ruby.wasm) against the python engine — see polyglot/README.md"
+          java -jar /tmp/planner.jar --serve 8092 &
+          for _ in $(seq 1 30); do curl -sf localhost:8092/health >/dev/null && break; sleep 1; done
+          curl -sf localhost:8092/health
+          python scripts/compare_planners.py --url http://127.0.0.1:8092
+          python scripts/compare_planners.py --jar /tmp/planner.jar --quiet
+
+      - name: Ruby — self-test, HTTP sidecar, and parity with the Python engine
+        run: |
+          if ! command -v ruby >/dev/null 2>&1; then
+            echo "::warning::no system ruby on this runner; the resolver logic was verified on CRuby 3.2 (ruby.wasm) — see polyglot/README.md"
+            exit 0
           fi
+          ruby -v
+          ruby polyglot/ruby/claim_resolver.rb --test
 
-      - name: Ruby vs Python parity on the demo corpus
-        run: |
-          if command -v ruby >/dev/null 2>&1; then
-            python -c "
+          python - <<'PY'
           import json
-          c = json.load(open('data/demo/corpus.json'))
-          json.dump({'claims': [{'id': x['id'], 'paper_id': x['paper'], 'text': x['text']} for x in c['claims']]}, open('/tmp/claims.json', 'w'))
-          "
-            ruby polyglot/ruby/claim_resolver.rb /tmp/claims.json > /tmp/ruby.json
-            python scripts/compare_claim_engines.py /tmp/ruby.json
-          else
-            echo "::warning::skipping the ruby/python parity run (no system ruby)"
-          fi
+          corpus = json.load(open("data/demo/corpus.json"))
+          claims = [{"id": c["id"], "paper_id": c["paper"], "text": c["text"]} for c in corpus["claims"]]
+          json.dump({"claims": claims}, open("/tmp/claims.json", "w"))
+          print(f"{len(claims)} claims written to /tmp/claims.json")
+          PY
+
+          # CLI path
+          ruby polyglot/ruby/claim_resolver.rb /tmp/claims.json > /tmp/ruby_cli.json
+          python scripts/compare_claim_engines.py /tmp/ruby_cli.json
+
+          # HTTP path (the contract NEXUS_CLAIM_URL expects)
+          ruby polyglot/ruby/claim_resolver.rb --serve 8093 &
+          for _ in $(seq 1 30); do curl -sf localhost:8093/health >/dev/null && break; sleep 1; done
+          curl -sf localhost:8093/health
+          curl -sf -X POST localhost:8093/resolve -H 'content-type: application/json' \
+            --data @/tmp/claims.json > /tmp/ruby_http.json
+          python scripts/compare_claim_engines.py /tmp/ruby_http.json
 
   # ------------------------------------------------------------------ container
   container:

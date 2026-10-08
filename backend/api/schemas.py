@@ -62,6 +62,16 @@ class ExportRequest(BaseModel):
     limit: int = Field(default=800, ge=10, le=5000)
 
 
+class PlanRequest(BaseModel):
+    """A NEXUS query-DSL request for the planner route (§4.3)."""
+
+    query: str = Field(
+        min_length=1,
+        max_length=400,
+        description='Query DSL, e.g. topic:"AI Agents" type in (Paper, Method) rel in (CITES) limit 50',
+    )
+
+
 class SearchResponse(BaseModel):
     query: str
     count: int
