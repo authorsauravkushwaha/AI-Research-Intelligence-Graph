@@ -100,6 +100,59 @@ jobs:
             node --check "/tmp/$(basename "$f" .js).mjs"
           done
 
+  # ---------------------------------------------------------------- polyglot
+  polyglot:
+    name: polyglot sidecars · kotlin · go · dotnet · ruby
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Go — vet, build, self-test
+        run: |
+          cd polyglot/go
+          go vet ./...
+          go build -o /tmp/nexus-ingest .
+          /tmp/nexus-ingest test
+
+      - name: .NET — build and self-test the export sidecar
+        run: |
+          cd polyglot/dotnet
+          dotnet build -c Release NexusExport.csproj
+          dotnet run -c Release --project NexusExport.csproj -- test
+
+      - name: Kotlin — compile with the embeddable compiler and self-test the planner
+        run: |
+          cd polyglot/kotlin
+          curl -sSLo /tmp/kotlin-compiler.zip \
+            https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-compiler/1.9.24/kotlin-compiler-1.9.24.zip
+          unzip -q /tmp/kotlin-compiler.zip -d /tmp/kotlinc
+          /tmp/kotlinc/kotlinc/bin/kotlinc src/main/kotlin/NexusPlanner.kt -include-runtime -d /tmp/planner.jar
+          java -jar /tmp/planner.jar --test
+          java -jar /tmp/planner.jar --plan "papers about agent memory since 2023"
+
+      - name: Ruby — self-test the claim resolver
+        run: |
+          if command -v ruby >/dev/null 2>&1; then
+            ruby polyglot/ruby/claim_resolver.rb --test
+          else
+            echo "::warning::no system ruby on this runner; the resolver was verified on CRuby 3.2 (ruby.wasm) against the python engine — see polyglot/README.md"
+          fi
+
+      - name: Ruby vs Python parity on the demo corpus
+        run: |
+          if command -v ruby >/dev/null 2>&1; then
+            python -c "
+          import json
+          c = json.load(open('data/demo/corpus.json'))
+          json.dump({'claims': [{'id': x['id'], 'paper_id': x['paper'], 'text': x['text']} for x in c['claims']]}, open('/tmp/claims.json', 'w'))
+          "
+            ruby polyglot/ruby/claim_resolver.rb /tmp/claims.json > /tmp/ruby.json
+            python scripts/compare_claim_engines.py /tmp/ruby.json
+          else
+            echo "::warning::skipping the ruby/python parity run (no system ruby)"
+          fi
+
   # ------------------------------------------------------------------ container
   container:
     name: docker image

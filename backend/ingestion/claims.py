@@ -56,11 +56,14 @@ DIRECTION_PAIRS: list[tuple[str, str]] = [
     ("increase", "decrease"), ("improve", "degrade"), ("improve", "reduce"),
     ("improve", "harm"), ("increase", "reduce"), ("higher", "lower"),
     ("better", "worse"), ("positive", "negative"), ("outperform", "underperform"),
-    ("scale", "fail"), ("improve", "fail"), ("help", "harm"),
+    # "fail" is deliberately NOT a direction pole: "fail to generalise" is a negation
+    # of generalising, not the opposite pole of "improve", and counting it as both
+    # double-scored those pairs. It stays in NEGATION_PATTERNS.
+    ("help", "harm"),
     ("faster", "slower"), ("more", "less"), ("enable", "prevent"),
     ("support", "undermine"), ("gain", "loss"), ("strong", "weak"),
     ("robust", "fragile"), ("effective", "ineffective"), ("benefit", "harm"),
-    ("necessary", "unnecessary"), ("succeed", "fail"), ("reduce", "worsen"),
+    ("necessary", "unnecessary"), ("reduce", "worsen"),
 ]
 
 STOPWORDS = {
@@ -129,11 +132,23 @@ def _content(tokens: Iterable[str]) -> list[str]:
 
 
 def _direction(tokens: list[str]) -> str | None:
-    tok_set = {normalise(t) for t in tokens}
+    """Find the effect-direction word on the sentence's semantic axis.
+
+    Both the raw and the normalised forms are matched, and the pair members are
+    normalised too, so inflections cannot hide an opposing direction: without this,
+    "degrades" normalises to "degrad" and stops matching the "improve/degrade" axis
+    — which silently dropped a real directional signal from the score. The Ruby
+    reference implementation (polyglot/ruby/claim_resolver.rb) compares raw and
+    inflected forms and must agree with this function.
+    """
+    # Match raw, normalised and de-pluralised forms on both sides, so an inflected
+    # verb ("degrades") cannot hide the axis it belongs to. The Ruby reference
+    # implementation performs the same three-way comparison.
+    tok_set = {normalise(t) for t in tokens} | set(tokens) | {t.rstrip("s") for t in tokens if len(t) > 4}
     for a, b in DIRECTION_PAIRS:
-        if a in tok_set:
+        if a in tok_set or normalise(a) in tok_set:
             return a
-        if b in tok_set:
+        if b in tok_set or normalise(b) in tok_set:
             return b
     return None
 

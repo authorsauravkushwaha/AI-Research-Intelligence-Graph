@@ -63,3 +63,30 @@ def test_tools_never_raise_and_report_errors(registry):
     assert ok["ok"] and ok["result"]["papers"]
     bad = registry.execute("get_paper", {"paper_id": "paper:does-not-exist"})
     assert bad["ok"] is False or bad["result"].get("found") is False
+
+
+def test_conflict_detection_matches_the_ruby_reference_engine(store):
+    """Cross-language parity: the Ruby claim resolver must agree with Python.
+
+    `polyglot/ruby/claim_resolver.rb` was executed on CRuby 3.2 (ruby.wasm) against
+    the same 51 curated claims and produced exactly the conflicts recorded in the
+    fixture — same pairs, same scores, same kinds. This test keeps the Python side
+    of that contract honest; `polyglot/README.md` documents how to re-run the Ruby
+    side after changing either implementation.
+    """
+    import json
+    from pathlib import Path
+
+    fixture_path = Path(__file__).parent / "data" / "claim_parity.json"
+    fixture = json.loads(fixture_path.read_text())
+
+    expected = {(row["claim_a"], row["claim_b"]): (row["score"], row["kind"]) for row in fixture["conflicts"]}
+    actual = {(c["claim_a"], c["claim_b"]): (c["score"], c["kind"]) for c in store.conflicts}
+
+    missing = sorted(set(expected) - set(actual))
+    extra = sorted(set(actual) - set(expected))
+    assert not missing, f"the Ruby reference reports conflicts Python no longer finds: {missing}"
+    assert not extra, f"Python reports conflicts the Ruby reference does not: {extra}"
+    for pair, (score, kind) in expected.items():
+        assert abs(actual[pair][0] - score) < 1e-9, f"{pair}: python {actual[pair][0]} vs reference {score}"
+        assert actual[pair][1] == kind, f"{pair}: python kind {actual[pair][1]} vs reference {kind}"

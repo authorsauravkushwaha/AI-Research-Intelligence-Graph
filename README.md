@@ -13,7 +13,7 @@ not a chat box — to find **research gaps**, explain **contradictions**, predic
   <img alt="neo4j" src="https://img.shields.io/badge/Neo4j-5.x%20%2B%20GDS-008cc1">
   <img alt="llm" src="https://img.shields.io/badge/LLM-optional%20(offline%20fallback)-green">
   <img alt="frontend" src="https://img.shields.io/badge/3D-three.js%20r160%20(vendored)-000000">
-  <img alt="tests" src="https://img.shields.io/badge/tests-52%20passing-brightgreen">
+  <img alt="tests" src="https://img.shields.io/badge/tests-53%20passing-brightgreen">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 
@@ -228,6 +228,12 @@ Every sidecar is **optional**: NEXUS calls it when it is reachable and falls bac
 Python implementation when it is not (`NEXUS_INGEST_URL`, `NEXUS_EXPORT_URL`,
 `NEXUS_PLANNER_URL`, `NEXUS_CLAIM_URL` — see `.env.example`). Nothing in the demo
 depends on a language runtime that is not Python.
+
+Which of the sidecars has actually been *executed* is tracked honestly in
+[`polyglot/README.md`](polyglot/README.md): the C++ kernel and the Ruby claim resolver run
+in this repository's own test path (the Ruby one on CRuby 3.2 via `ruby.wasm`, then
+compared claim-by-claim against the Python engine), Kotlin/Go/.NET compile and self-test in
+CI, and any step a runner cannot provide is an explicit warning rather than a silent pass.
 
 ---
 
@@ -458,7 +464,7 @@ comments in [`.env.example`](.env.example).
 ## Testing
 
 ```bash
-python -m pytest -q          # 52 tests: corpus, store, kernel, gaps, agent, API, MCP, frontend
+python -m pytest -q          # 53 tests: corpus, store, kernel, gaps, agent, API, MCP, frontend
 ./scripts/smoke.sh           # 41 live HTTP checks against a running server (incl. SSE)
 python run.py --check        # installation preflight
 python scripts/build_corpus.py --check   # corpus validator (ids, dedupe, provenance)
@@ -513,7 +519,7 @@ AI-Research-Intelligence-Graph/
 ├── native/             C++17 graph kernel (PageRank, Louvain, betweenness, link prediction)
 ├── polyglot/           Kotlin planner · Ruby claim resolver · Go ingest · C# export · Java service
 ├── scripts/            corpus builder/validator, live smoke sweep
-├── tests/              pytest suite (52 tests)
+├── tests/              pytest suite (53 tests)
 ├── docker-compose.yml  Neo4j 5.26 + GDS + APOC + API
 └── run.py              launcher with preflight checks
 ```

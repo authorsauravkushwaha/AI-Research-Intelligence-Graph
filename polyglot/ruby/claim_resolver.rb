@@ -51,26 +51,18 @@ module Nexus
 
   # Direction words: opposing pairs used to detect directional disagreement
   # (e.g. "increases" vs "decreases").
+  # Opposing semantic axes — the same list as the Python reference
+  # (backend/ingestion/claims.py). "fail" is deliberately absent: "fail to
+  # generalise" is a negation of generalising, not the opposite pole of "improve",
+  # so it is handled by the negation detector only.
   DIRECTION_PAIRS = [
-    %w[increase decreases],
-    %w[improve degrade],
-    %w[improves degrades],
-    %w[reduce increases],
-    %w[reduces increases],
-    %w[higher lower],
-    %w[better worse],
-    %w[positive negative],
-    %w[outperforms underperforms],
-    %w[scales fails],
-    %w[faster slower],
-    %w[more less],
-    %w[enable prevent],
-    %w[enables prevents],
-    %w[supports undermines],
-    %w[helps harms],
-    %w[gain loss],
-    %w[strong weak]
-  ].map { |a, b| [a, b] }.freeze
+    %w[increase decrease], %w[improve degrade], %w[improve reduce], %w[improve harm],
+    %w[increase reduce], %w[higher lower], %w[better worse], %w[positive negative],
+    %w[outperform underperform], %w[help harm], %w[faster slower], %w[more less],
+    %w[enable prevent], %w[support undermine], %w[gain loss], %w[strong weak],
+    %w[robust fragile], %w[effective ineffective], %w[benefit harm],
+    %w[necessary unnecessary], %w[reduce worsen]
+  ].freeze
 
   STOPWORDS = %w[
     the a an of in on for with to and or is are was were be been being that this
@@ -95,7 +87,11 @@ module Nexus
 
     # Parse + register one or more claims; returns the created Claim objects.
     def add(payload)
-      Array(payload).map do |raw|
+      # `Array({...})` would explode a single record into its key/value pairs, so a
+      # lone Hash is wrapped explicitly: the resolver accepts one claim, a list of
+      # claims, or the raw corpus payload.
+      records = payload.is_a?(Hash) ? [payload] : Array(payload)
+      records.map do |raw|
         c = parse(raw)
         @claims << c
         (@index[group_key(c)] ||= []) << c
@@ -127,7 +123,7 @@ module Nexus
         subject: extract_subject(toks),
         predicate: extract_predicate(toks),
         direction: extract_direction(toks),
-        negated: negated?(toks),
+        negated: negated?(text),
         strength: strength(toks),
         tokens: toks,
         source: raw['source'] || 'demo-corpus',
@@ -135,18 +131,85 @@ module Nexus
       )
     end
 
+    #: Minimum score for a pair to be reported. Matches the Python reference
+    #: (backend/ingestion/claims.py) so both engines agree on what a candidate is.
+    MIN_SCORE = 0.45
+
     # All contradiction candidates across the registered claims, ranked.
-    def conflicts(min_score: 0.35)
+    #
+    # Two passes, exactly as in the Python reference:
+    #   1. within groups that share subject+predicate (cheap, precise),
+    #   2. across the claims that never grouped (otherwise a slightly different
+    #      subject slice would hide a real opposition).
+    # Both passes require the *gate*: explicit opposition plus shared substance.
+    def conflicts(min_score: MIN_SCORE)
       out = []
+      seen = {}
+
       @index.each_value do |group|
         next if group.size < 2
 
         group.combination(2) do |a, b|
+          next unless gate(a, b)[0]
+
+          seen[[a.id, b.id]] = true
           f = score(a, b)
           out << f if f.score >= min_score
         end
       end
+
+      singles = @claims.select { |c| (@index[group_key(c)] || []).size == 1 }
+      singles.combination(2) do |a, b|
+        next if seen[[a.id, b.id]]
+        next unless gate(a, b)[0]
+
+        f = score(a, b)
+        out << f if f.score >= min_score
+      end
+
       out.sort_by { |f| -f.score }
+    end
+
+    # A pair is only a candidate when there is explicit opposition *and* enough
+    # shared substance to believe they are about the same thing. Mirrors
+    # `opposition_gate()` in backend/ingestion/claims.py.
+    def gate(a, b)
+      return [false, nil, 'same paper — not a contradiction candidate'] if a.paper_id && a.paper_id == b.paper_id
+
+      shared, overlap = shared_content(a, b)
+      same_proposition = !a.subject.empty? && a.subject == b.subject && a.predicate == b.predicate
+
+      if a.negated != b.negated && (same_proposition || (shared.size >= 2 && overlap >= 0.2))
+        return [true, 'polarity', "polarity opposition with #{shared.size} shared concept token(s)"]
+      end
+      if a.direction && b.direction && opposing_direction?(a.direction, b.direction) && shared.size >= 2 && overlap >= 0.2
+        return [true, 'directional', "opposing direction on the same axis with #{shared.size} shared tokens"]
+      end
+
+      [false, nil, 'no explicit opposition signal']
+    end
+
+    def shared_content(a, b)
+      sa = content_tokens(a.tokens).map { |t| normalise_token(t) }
+      sb = content_tokens(b.tokens).map { |t| normalise_token(t) }
+      shared = sa & sb
+      overlap = if sa.empty? || sb.empty?
+                  0.0
+                else
+                  shared.size.to_f / [sa.size, sb.size].min
+                end
+      [shared, overlap]
+    end
+
+    # Very light stemming, deliberately conservative: only suffixes that are
+    # unambiguous for this vocabulary, mirroring the Python `normalise()`.
+    def normalise_token(token)
+      return "#{token[0..-4]}y" if token.end_with?('ies') && token.length > 4
+
+      %w[ing ed es s].each do |suffix|
+        return token[0...-suffix.length] if token.end_with?(suffix) && token.length - suffix.length >= 4
+      end
+      token
     end
 
     # Transparent, additive scoring. Every point is explained in `reasons`, which
@@ -154,49 +217,54 @@ module Nexus
     def score(a, b)
       reasons = []
       score = 0.0
+      kind, _why = gate(a, b).slice(1, 2)
 
-      # 1. Overlapping subject+predicate -> they really are about the same thing
-      if a.subject == b.subject && a.predicate == b.predicate
-        score += 0.40
-        reasons << "Both claims address the same subject/predicate (#{a.subject} / #{a.predicate})."
-      end
+      # The weights below are the published model, identical to the Python reference
+      # in backend/ingestion/claims.py: +0.45 polarity, +0.35 opposing direction,
+      # +0.20 same subject/predicate, +0.10 both assertive, +0.15 x lexical overlap,
+      # -0.20 same polarity and direction (corroboration, not conflict).
 
-      # 2. Explicit negation divergence
+      # 1. Explicit negation divergence (the strongest single signal)
       if a.negated != b.negated
-        score += 0.30
+        score += 0.45
         reasons << "Polarity differs: one claim is negated (#{a.negated ? a.id : b.id})."
       end
 
-      # 3. Directional disagreement
+      # 2. Directional disagreement on the same semantic axis
       if a.direction && b.direction && opposing_direction?(a.direction, b.direction)
-        score += 0.25
+        score += 0.35
         reasons << "Effect direction is opposite: '#{a.direction}' vs '#{b.direction}'."
       end
 
-      # 4. Same-strength mutual affirmation is *agreement*, not conflict
+      # 3. Same subject and predicate: they really are about the same thing
+      if a.subject == b.subject && a.predicate == b.predicate
+        score += 0.20
+        reasons << "Both claims address the same subject/predicate (#{a.subject} / #{b.predicate})."
+      end
+
+      # 4. Same polarity and direction is corroboration, not conflict
       if !a.negated && !b.negated && a.direction && a.direction == b.direction
         score -= 0.20
         reasons << 'Same polarity and same direction — treated as corroboration, not conflict.'
       end
 
-      # 5. Confident language on both sides makes a conflict more interesting
+      # 5. Assertive language on both sides makes a disagreement material
       if a.strength == 'strong' && b.strength == 'strong'
         score += 0.10
         reasons << 'Both claims use assertive language, so the disagreement is material.'
       end
 
-      # 6. Lexical overlap of content words (weak corroboration of "same topic")
-      overlap = lexical_overlap(a.tokens, b.tokens)
-      score += 0.15 * overlap if overlap.positive?
-      reasons << format('Token overlap %.0f%% between the two claims.', overlap * 100) if overlap >= 0.3
+      # 6. Lexical overlap of content words (supporting signal only)
+      shared, overlap = shared_content(a, b)
+      if overlap.positive?
+        score += 0.15 * overlap
+        reasons << format('%<n>d shared concept tokens (%<p>.0f%% lexical overlap).', n: shared.size, p: overlap * 100)
+      end
 
-      kind =
-        if a.negated != b.negated then 'polarity'
-        elsif opposing_direction?(a.direction, b.direction) then 'directional'
-        else 'contextual'
-        end
-
-      Conflict.new(claim_a: a, claim_b: b, score: score.clamp(0.0, 1.0).round(3), kind: kind, reasons: reasons)
+      Conflict.new(
+        claim_a: a, claim_b: b, score: score.clamp(0.0, 1.0).round(3),
+        kind: kind || 'contextual', reasons: reasons
+      )
     end
 
     def group_key(c)
@@ -221,8 +289,15 @@ module Nexus
       content_tokens(toks)[3, 3].to_a.join(' ')
     end
 
-    def negated?(toks)
-      toks.any? { |t| NEGATIONS.include?(t) || t.include?("n't") }
+    # Negation is a *construction*, not a keyword, and the words that carry it
+    # ("not", "no", "never") are stopwords for every other purpose. That is why this
+    # check runs on the raw sentence rather than on the filtered token list.
+    def negated?(text)
+      raw_tokens(text).any? { |t| NEGATIONS.include?(t) || t.include?("n't") }
+    end
+
+    def raw_tokens(text)
+      text.to_s.downcase.scan(/[a-z0-9][a-z0-9\-_.]{1,}/)
     end
 
     def strength(toks)
@@ -239,12 +314,30 @@ module Nexus
       strength(toks) != 'moderate' || negated?(toks) || !extract_direction(toks).nil?
     end
 
+    # Mirrors Python's `_direction()`: raw, normalised and de-pluralised forms are
+    # all compared, so an inflected verb ("degrades") cannot hide the axis it is on.
     def extract_direction(toks)
+      forms = direction_forms(toks)
       DIRECTION_PAIRS.each do |a, b|
-        return a if toks.include?(a)
-        return b if toks.include?(b)
+        return a if direction_form?(forms, a)
+        return b if direction_form?(forms, b)
       end
       nil
+    end
+
+    def direction_forms(toks)
+      forms = toks.dup
+      toks.each do |t|
+        forms << normalise_token(t)
+        forms << t.sub(/s\z/, '') if t.length > 4 && t.end_with?('s')
+      end
+      forms.uniq
+    end
+
+    def direction_form?(forms, member)
+      forms.include?(member) ||
+        forms.include?(normalise_token(member)) ||
+        (member.length > 4 && member.end_with?('s') && forms.include?(member.sub(/s\z/, '')))
     end
 
     def opposing_direction?(da, db)
@@ -294,7 +387,9 @@ if __FILE__ == $PROGRAM_NAME
     r.add('id' => 'a1', 'text' => 'Multi-agent coordination consistently improves reasoning performance.')
     r.add('id' => 'a2', 'text' => 'Multi-agent coordination does not improve reasoning performance.')
     f = r.score(r.claims[0], r.claims[1])
-    check(failures, 'polarity conflict detected', f.score >= 0.6 && f.kind == 'polarity')
+    # 0.57 is what this pair scores in the Python reference too (backend/ingestion/claims.py),
+    # verified by the parity fixture in tests/data/claim_parity.json.
+    check(failures, 'polarity conflict detected', (f.score - 0.57).abs < 1e-9 && f.kind == 'polarity')
     check(failures, 'strong language classified', r.claims[0].strength == 'strong')
     check(failures, 'reasons are attached', f.reasons.size >= 2)
 

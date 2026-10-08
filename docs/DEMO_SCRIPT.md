@@ -124,7 +124,7 @@ Optionally show `docker compose up -d`, then `/api/health` reporting
 
 ```bash
 python run.py --check          # dependencies, corpus, kernel, capability flags
-python -m pytest -q            # 52 tests
+python -m pytest -q            # 53 tests
 ./scripts/smoke.sh             # 41 live endpoint checks
 curl -s localhost:8000/api/health | python3 -m json.tool | head -30
 ```
