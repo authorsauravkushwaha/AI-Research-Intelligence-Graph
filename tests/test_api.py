@@ -5,6 +5,17 @@ from __future__ import annotations
 import pytest
 
 
+def test_liveness_probe_is_always_registered(api):
+    """`/api/ping` must answer even though the front end owns the catch-all route.
+
+    CI polls it before starting the smoke sweep; it was previously registered only when
+    `frontend/index.html` was missing, so a normal checkout answered 404 and `curl -sf`
+    exited 22 — the whole smoke step failed on a live server."""
+    response = api.get("/api/ping")
+    assert response.status_code == 200
+    assert response.text == "pong"
+
+
 def test_health_reports_engine_and_capabilities(api):
     payload = api.get("/api/health").json()
     assert payload["status"] in {"ok", "degraded"}

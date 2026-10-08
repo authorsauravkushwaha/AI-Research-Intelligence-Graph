@@ -150,7 +150,7 @@ home screen). Two adjustments in the narration:
 
 ```bash
 python run.py --check          # dependencies, corpus, kernel, capability flags
-python -m pytest -q            # 75 tests
+python -m pytest -q            # 76 tests
 ./scripts/smoke.sh             # 46 live endpoint checks
 curl -s localhost:8000/api/health | python3 -m json.tool | head -30
 ```

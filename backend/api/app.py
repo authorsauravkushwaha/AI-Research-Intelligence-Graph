@@ -101,6 +101,12 @@ def create_app() -> FastAPI:
             },
         )
 
+    @app.get("/api/ping", include_in_schema=False, response_class=PlainTextResponse)
+    def ping() -> str:
+        """Liveness probe: plain, unauthenticated, no engine work. Always registered —
+        `run.py`, the container healthcheck and CI poll it before the smoke sweep."""
+        return "pong"
+
     app.include_router(_build_router())
 
     frontend = REPO_ROOT / "frontend"
@@ -141,10 +147,6 @@ LLM configured: <code>{flags.get('llm_configured')}</code> ·
 demo mode: <code>{settings.server.demo_mode}</code></p>
 <p>Run <code>python run.py</code> to serve the API, or <code>uvicorn backend.api.app:create_app --factory</code>.</p>
 </body></html>"""
-
-        @app.get("/api/ping", include_in_schema=False, response_class=PlainTextResponse)
-        def ping() -> str:
-            return "pong"
 
     @app.on_event("startup")
     async def _startup() -> None:

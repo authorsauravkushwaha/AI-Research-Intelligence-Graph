@@ -13,7 +13,7 @@ not a chat box — to find **research gaps**, explain **contradictions**, predic
   <img alt="neo4j" src="https://img.shields.io/badge/Neo4j-5.x%20%2B%20GDS-008cc1">
   <img alt="llm" src="https://img.shields.io/badge/LLM-optional%20(offline%20fallback)-green">
   <img alt="frontend" src="https://img.shields.io/badge/3D-three.js%20r160%20(vendored)-000000">
-  <img alt="tests" src="https://img.shields.io/badge/tests-75%20passing-brightgreen">
+  <img alt="tests" src="https://img.shields.io/badge/tests-76%20passing-brightgreen">
   <img alt="website" src="https://img.shields.io/badge/site-live%20on%20GitHub%20Pages-2ea44f">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -542,7 +542,7 @@ comments in [`.env.example`](.env.example).
 ## Testing
 
 ```bash
-python -m pytest -q          # 75 tests: corpus, store, kernel, gaps, agent, planner, API, MCP, frontend
+python -m pytest -q          # 76 tests: corpus, store, kernel, gaps, agent, planner, API, MCP, frontend
 ./scripts/smoke.sh           # 46 live HTTP checks against a running server (incl. SSE)
 python run.py --check        # installation preflight
 python scripts/build_corpus.py --check   # corpus validator (ids, dedupe, provenance)
@@ -609,7 +609,7 @@ AI-Research-Intelligence-Graph/
 ├── polyglot/           Kotlin planner · Ruby claim resolver · Go ingest · C# export · Java service
 ├── scripts/            corpus builder/validator, live smoke sweep, static-site builder
 ├── site/               generated website + PWA (gitignored; built by scripts/build_site.py)
-├── tests/              pytest suite (75 tests)
+├── tests/              pytest suite (76 tests)
 ├── docker-compose.yml  Neo4j 5.26 + GDS + APOC + API
 └── run.py              launcher with preflight checks
 ```
