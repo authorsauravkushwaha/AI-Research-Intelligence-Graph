@@ -69,19 +69,50 @@ system still answers — from graph structure, with deterministic templates.
 
 ## Quickstart
 
+Run commands **from the repository root** — the folder containing both `run.py` and
+`backend/`. If `backend/requirements.txt` or `run.py` cannot be found, check `pwd` and
+change into your clone first. In Git Bash, `/` is the Git installation directory, not the
+NEXUS repository; create `.venv` only after entering the clone.
+
+### macOS / Linux
+
 ```bash
 git clone https://github.com/authorsauravkushwaha/AI-Research-Intelligence-Graph
 cd AI-Research-Intelligence-Graph
-
-python3 -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r backend/requirements.txt
-
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r backend/requirements.txt
+python run.py --check
 python run.py                 # → http://localhost:8000
 ```
 
+### Windows with Git Bash
+
+If you have not cloned the project yet:
+
+```bash
+cd /c/Users/SAURAV
+git clone https://github.com/authorsauravkushwaha/AI-Research-Intelligence-Graph
+cd AI-Research-Intelligence-Graph
+```
+
+If it is already cloned elsewhere, skip `git clone` and `cd` to that existing folder instead.
+Then, from the folder containing `run.py` and `backend/`, run:
+
+```bash
+python -m venv .venv
+source .venv/Scripts/activate
+python -m pip install -r backend/requirements.txt
+python run.py --check
+python run.py                 # → http://localhost:8000
+```
+
+Use plain shell commands such as `python run.py --check`; do not include Markdown link
+syntax like `[run.py](...)`. The activation command above is for Git Bash; PowerShell and
+Command Prompt use their respective Windows activation scripts.
+
 That is the whole setup. **No Neo4j, no API key, no Docker, no network.** The launcher
-checks the environment first (`python run.py --check`) and reports exactly what is
-available:
+reports the active backend and capabilities:
 
 ```
 NEXUS — AI Research Intelligence Graph
