@@ -92,7 +92,7 @@ function barChart(canvas, data, { color = "#61e4ff", label = "" } = {}) {
 }
 
 /* --------------------------------------------------------------- router */
-const VIEWS = ["home", "explorer", "graph", "gaps", "papers", "agent", "report"];
+const VIEWS = ["home", "investigate", "explorer", "graph", "gaps", "papers", "agent", "report"];
 function route() {
   const hash = (location.hash || "#home").replace("#", "");
   const view = VIEWS.includes(hash) ? hash : "home";
@@ -100,6 +100,7 @@ function route() {
   $$("#nav a").forEach((a) => a.classList.toggle("active", a.dataset.view === view));
   if (view === "graph") { Graph.ensure(); Graph.planner.ensure(); }
   if (view === "home") Home.load();
+  if (view === "investigate") Investigator.ensure();
   if (view === "explorer") Explorer.ensureDefaults();
   if (view === "papers") Papers.ensure();
   if (view === "agent") Agent.ensure();
@@ -368,19 +369,20 @@ const Graph = {
       }
     },
   },
-  async load({ query = null, seeds = null, focus = null } = {}) {
+  async load({ query = null, seeds = null, focus = null, depth = 1, includeAllTypes = false, includePredicted = null } = {}) {
     if (!this.ready) this.ensure();
     if (!this.init) return;
-    const nodeTypes = $$("#graph-node-types option:checked").map((o) => o.value);
-    const relTypes = $$("#graph-rel-types option:checked").map((o) => o.value);
+    const nodeTypes = includeAllTypes ? [] : $$("#graph-node-types option:checked").map((o) => o.value);
+    const relTypes = includeAllTypes ? [] : $$("#graph-rel-types option:checked").map((o) => o.value);
     $("#graph-stats").textContent = "loading…";
     try {
       const body = {
+        seeds: Array.isArray(seeds) && seeds.length ? seeds : null,
         query: query || null,
-        depth: query || focus ? 1 : 1,
+        depth: Math.max(0, Math.min(Number(depth) || 1, 3)),
         node_types: nodeTypes.length ? nodeTypes : null,
         rel_types: relTypes.length ? relTypes : null,
-        include_predicted: $("#graph-predicted").checked,
+        include_predicted: includePredicted === null ? $("#graph-predicted").checked : Boolean(includePredicted),
         focus: focus || (query ? null : $("#graph-search").value.trim() || null),
         max_nodes: 280, max_edges: 900,
       };
@@ -530,6 +532,233 @@ const Graph = {
     } catch (err) { toast(`expand failed: ${err.message}`); }
   },
 };
+
+/* ------------------------------------------------------- investigator */
+const Investigator = {
+  ready: false,
+  result: null,
+  ensure() {
+    if (this.ready) return;
+    this.ready = true;
+    $("#investigator-form").addEventListener("submit", (event) => {
+      event.preventDefault(); this.run();
+    });
+    $$("#investigator-examples [data-question]").forEach((button) => {
+      button.addEventListener("click", () => {
+        $("#investigator-question").value = button.dataset.question || "";
+        $("#investigator-scope").value = button.dataset.scope || "";
+        $("#investigator-question").focus();
+      });
+    });
+  },
+  async run() {
+    const question = $("#investigator-question").value.trim();
+    const body = {
+      question,
+      scope_topic: $("#investigator-scope").value || null,
+      field: $("#investigator-field").value.trim() || null,
+      year_min: Number($("#investigator-year-min").value) || null,
+      year_max: Number($("#investigator-year-max").value) || null,
+      top_k: 5,
+      retrieval_top_k: 24,
+      depth: 2,
+    };
+    const status = $("#investigator-status");
+    const button = $("#investigator-run");
+    button.disabled = true;
+    $("#investigator-form").setAttribute("aria-busy", "true");
+    status.textContent = "Resolving scope, retrieving graph context, and ranking source records…";
+    $("#investigator-results").innerHTML = "";
+    try {
+      this.result = await api("/api/investigate", { method: "POST", body });
+      this.render(this.result);
+    } catch (err) {
+      this.result = null;
+      status.textContent = `Investigation unavailable: ${err.message}`;
+      $("#investigator-results").innerHTML = `
+        <div class="panel safety" role="alert">
+          <strong>No investigation was substituted.</strong>
+          <p>${esc(err.message)}</p>
+          <p class="tiny">A static snapshot only contains its explicitly recorded demo questions. Run NEXUS locally for a live question.</p>
+        </div>`;
+    } finally {
+      button.disabled = false;
+      $("#investigator-form").removeAttribute("aria-busy");
+    }
+  },
+  link(url, title, label = "Open source ↗") {
+    const safe = safeHttpUrl(url);
+    return safe ? `<a href="${esc(safe)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>` : `<span class="muted">source link not recorded</span>`;
+  },
+  render(data) {
+    const scope = data.scope || {};
+    const coverage = data.coverage || {};
+    const backend = data.backend || {};
+    const snapshot = data.static_snapshot;
+    const pathStatus = data.graph_path_status || {};
+    const status = $("#investigator-status");
+    const yearRange = coverage.year_range?.length === 2 ? `${coverage.year_range[0]}–${coverage.year_range[1]}` : "not recorded";
+    const matchTerms = (coverage.matched_question_terms || []).join(", ") || "none in this scope";
+    const scopeName = scope.selected_topic || "whole corpus";
+    const pathLabel = pathStatus.verification_error
+      ? `path check warning: ${pathStatus.verification_error}`
+      : `${pathStatus.method || "graph traversal"} · ${pathStatus.paths_found || 0} path(s) found`;
+    status.textContent = `${coverage.scope_papers ?? scope.papers ?? 0} papers in “${scopeName}” · ${data.opportunities?.length || 0} relevant candidate(s) · ${backend.graph_store || "unknown graph"} · ${data.retrieval?.engine || "retrieval unknown"}${snapshot ? " · recorded static snapshot" : ""}`;
+    const summary = `
+      <div class="panel">
+        <div class="eyebrow">Investigation record</div>
+        <h3>${esc(data.question)}</h3>
+        <div class="investigation-summary">
+          ${this.stat("Selected scope", scopeName)}
+          ${this.stat("Papers in scope", coverage.scope_papers ?? scope.papers ?? 0)}
+          ${this.stat("Question-matched papers", coverage.papers_with_question_term_match ?? 0)}
+          ${this.stat("Relevant candidates", data.opportunities?.length || 0)}
+          ${this.stat("Scope years", yearRange)}
+          ${this.stat("Graph backend", backend.graph_store || "unknown")}
+        </div>
+        <p class="tiny muted">Question terms found in scope: ${esc(matchTerms)} · GraphRAG engine: ${esc(data.retrieval?.engine || "unknown")} · ${esc(pathLabel)}</p>
+        <p class="tiny muted">Scope resolver: ${esc(scope.resolution?.strategy || scope.selected_by || "not reported")} · matched topics: ${esc((scope.resolution?.matched_topics || []).join(", ") || "none reported")}</p>
+        ${snapshot ? `<div class="safety"><strong>Static snapshot.</strong> ${esc(snapshot.note || "This is a precomputed response, not a live investigation.")}</div>` : ""}
+        ${data.empty_reason ? `<div class="safety"><strong>No supported opportunity candidate.</strong> ${esc(data.empty_reason)} Relevant source papers and scope coverage are still shown below; unrelated candidates are not substituted.</div>` : ""}
+      </div>`;
+    const candidateMarkup = (data.opportunities || []).map((candidate, index) => this.candidate(candidate, index)).join("");
+    const relevantMarkup = this.relevantPapers(data.relevant_papers || []);
+    const caveats = (data.limitations || []).map((item) => `<li>${esc(item)}</li>`).join("");
+    const sources = Object.entries(coverage.summary_sources || {}).map(([key, value]) => `${key}: ${value}`).join(" · ") || "none recorded";
+    const retrievalNote = data.retrieval?.note || "";
+    $("#investigator-results").innerHTML = `${summary}
+      ${candidateMarkup || ""}
+      ${relevantMarkup}
+      <div class="panel">
+        <h3>Coverage, provenance &amp; interpretation limits</h3>
+        <p class="small">Corpus size: ${esc(coverage.corpus_papers ?? "not reported")} paper records · scoped records: ${esc(coverage.scope_papers ?? 0)} · raw GraphRAG context papers: ${esc(data.retrieval?.raw_context_papers ?? 0)}.</p>
+        <p class="tiny muted">Graph computation scope: ${esc(backend.graph_computation_scope || "not reported")}</p>
+        <p class="small">Summary-source labels within the returned matched papers: ${esc(sources)}. Editorial summaries are not abstracts and should not replace source papers.</p>
+        <p class="small muted">${esc(retrievalNote)}</p>
+        <ul class="investigation-warning">${caveats}</ul>
+        <p class="tiny muted">NEXUS Opportunity Score: ${esc(data.score_explanation?.published_score || "prototype heuristic")}. Ranking formula and weights are shown on each candidate.</p>
+      </div>`;
+    this.bindResultActions();
+  },
+  stat(label, value) {
+    return `<div class="investigation-stat"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`;
+  },
+  candidate(candidate, index) {
+    const score = Number(candidate.opportunity_score || 0);
+    const components = (candidate.score_components || []).map((component) => {
+      const value = Math.max(0, Math.min(100, Number(component.value) || 0));
+      return `<div class="bar-row"><span>${esc(component.label)} <span class="muted tiny">${esc(component.weight)}</span></span><div class="bar"><i style="width:${value}%"></i></div><span class="val">${value.toFixed(0)}</span></div>`;
+    }).join("");
+    const sources = (candidate.evidence || []).map((paper) => `
+      <div class="investigation-source">
+        <strong>${this.link(paper.url, paper.title, paper.title || paper.id)}</strong>
+        <span class="pill cyan">${esc(paper.year || "year n/a")}</span>
+        <span class="pill">${esc(paper.summary_source || "source label n/a")}</span>
+        <span class="why">${esc(paper.reason || "candidate evidence record")}${paper.matched_terms?.length ? ` · question terms: ${esc(paper.matched_terms.join(", "))}` : ""}</span>
+      </div>`).join("") || '<p class="muted small">No source paper record could be attached to this candidate.</p>';
+    const paths = (candidate.graph_paths || []).map((path, pathIndex) => {
+      const nodes = path.nodes || [];
+      const chain = nodes.map((node, nodeIndex) => `${nodeIndex ? '<span class="path-arrow">→</span>' : ""}<span class="path-node">${esc(node.label || node.id)} <span class="muted">${esc(node.type || "")}</span></span>`).join("");
+      const hops = (path.hops || []).map((hop) => {
+        const from = nodes.find((node) => node.id === hop.from)?.label || hop.from;
+        const to = nodes.find((node) => node.id === hop.to)?.label || hop.to;
+        return `<div class="path-hop"><strong>${esc(from)}</strong> —${esc(hop.type)}→ <strong>${esc(to)}</strong> · ${esc(hop.provenance || "provenance not recorded")}${hop.direction === "incoming" ? " · traversed against stored direction" : ""}</div>`;
+      }).join("");
+      return `<div class="path-card">
+        <div class="tiny muted">${esc(path.method || "bounded graph path")} · ${esc(path.path_kind || "observed relationship path")}</div>
+        <div class="path-chain">${chain}</div>${hops || '<span class="muted tiny">same-node path; no relationship hop</span>'}
+        <button class="btn small ghost" type="button" data-trace-path="${index}:${pathIndex}">Trace these nodes in the graph ↗</button>
+      </div>`;
+    }).join("") || '<p class="muted small">No observed relationship path was returned for this candidate. This is not evidence that no relationship exists outside the available graph.</p>';
+    const counterevidence = (candidate.counterevidence || []).map((item) => `
+      <div class="investigation-source investigation-warning">
+        <strong>Potential tension — AI-detected hypothesis</strong>
+        <p>${esc(item.text_a || "Claim A not available")}</p><p>vs.</p><p>${esc(item.text_b || "Claim B not available")}</p>
+        <span class="tiny">${esc(item.kind || "tension")} · score ${esc(item.score ?? "n/a")} · ${esc(item.evidence_status || "verify at the source")}</span>
+        <div class="tiny">${this.link(item.url_a, item.source_a || "source A", "Source A ↗")} · ${this.link(item.url_b, item.source_b || "source B", "Source B ↗")}</div>
+      </div>`).join("") || `<p class="muted small">${esc(candidate.counterevidence_status || "No detected claim-tension record was attached. This is not evidence of consensus.")}</p>`;
+    const experiment = candidate.experiment_proposal || {};
+    const controls = (experiment.controls || []).map((item) => `<li>${esc(item)}</li>`).join("");
+    const outcomes = (experiment.secondary_outcomes || []).map((item) => `<li>${esc(item)}</li>`).join("");
+    const unknowns = (experiment.unknowns || []).map((item) => `<li>${esc(item)}</li>`).join("");
+    const bridgeCount = (candidate.bridge_papers || []).length;
+    const caveats = (candidate.limitations || []).map((item) => `<li>${esc(item)}</li>`).join("");
+    return `<article class="opp investigation-candidate" aria-labelledby="investigation-candidate-${index}">
+      <div class="opp-head">
+        <div><span class="pill violet">candidate · rank ${index + 1}</span><span class="pill">question match ${Number(candidate.question_relevance || 0).toFixed(2)}</span>
+          <h3 class="investigation-title" id="investigation-candidate-${index}">${esc(candidate.title)}</h3>
+          <p class="muted small">${esc(candidate.labels?.finding || "Potentially underexplored in the analyzed corpus")} · ${bridgeCount} bridge paper(s) recorded</p>
+        </div>
+        <div class="opp-score" aria-label="Prototype heuristic score ${score.toFixed(1)}">${score.toFixed(1)}<div class="tiny muted">heuristic</div></div>
+      </div>
+      <div class="opp-body">
+        <div class="safety">${esc(candidate.hypothesis || "Candidate relationship derived from this graph scope.")} <strong>Review the cited papers before treating it as a research gap.</strong></div>
+        <div class="investigation-section"><h4>Why this pair surfaced</h4><div class="bars">${components}</div>
+          <p class="tiny muted">${esc(candidate.question_relevance_note || "Question relevance is separate from the prototype score.")} Matched question terms: ${esc((candidate.question_matched_terms || []).join(", ") || "none listed")}.</p>
+          <details><summary class="linkish tiny">Show ranking weights / score interpretation</summary>
+            <p class="tiny muted">${esc(this.result?.score_explanation?.safety_notice || "Scores are not calibrated probabilities.")}</p>
+            <pre class="code tiny">${esc(JSON.stringify(candidate.score_components || [], null, 2))}</pre>
+          </details>
+        </div>
+        <div class="investigation-section"><h4>Source papers &amp; evidence roles</h4><div class="investigation-evidence">${sources}</div></div>
+        <div class="investigation-section"><h4>Observed graph path(s)</h4>${paths}</div>
+        <div class="investigation-section"><h4>Counterevidence &amp; prior-work checks</h4>${counterevidence}
+          <p class="tiny muted">${bridgeCount ? `${bridgeCount} bridge paper(s) in this graph scope may already contain partial intersections; review those first.` : "No bridge paper was recorded in this scope. A missing graph bridge does not establish novelty."}</p>
+        </div>
+        <div class="investigation-experiment"><h4>Falsifiable experiment proposal</h4>
+          <p><strong>Hypothesis:</strong> ${esc(experiment.research_hypothesis || candidate.experiment || "Review both areas, then pre-register a testable comparison.")}</p>
+          <p><strong>Intervention:</strong> ${esc(experiment.intervention || "Select a concrete method after reviewing its source paper.")}</p>
+          <p><strong>Comparator:</strong> ${esc(experiment.comparison || "Select a reproducible baseline from the target-area papers after full-text review.")}</p>
+          <p><strong>Primary outcome:</strong> ${esc(experiment.primary_outcome || "Predeclare a task-appropriate outcome before running the experiment.")}</p>
+          <p><strong>Falsification criterion:</strong> ${esc(experiment.falsification_criterion || "If the predeclared outcome is not improved under controlled conditions, the directional hypothesis is unsupported.")}</p>
+          ${outcomes ? `<h4>Secondary outcomes</h4><ul>${outcomes}</ul>` : ""}
+          ${controls ? `<h4>Design controls</h4><ul>${controls}</ul>` : ""}
+          ${unknowns ? `<h4>Unknowns to resolve from full text</h4><ul>${unknowns}</ul>` : ""}
+        </div>
+        <details class="investigation-section"><summary class="linkish"><strong>Candidate-specific limitations</strong></summary><ul>${caveats}</ul></details>
+      </div>
+    </article>`;
+  },
+  relevantPapers(papers) {
+    const rows = papers.map((paper) => `
+      <div class="investigation-source">
+        <strong>${this.link(paper.url, paper.title, paper.title || paper.id)}</strong>
+        <span class="pill cyan">${esc(paper.year || "year n/a")}</span>
+        <span class="pill">match ${Number(paper.relevance_score || 0).toFixed(2)}</span>
+        <span class="why">matched: ${esc((paper.matched_terms || []).join(", ") || "—")} · topics/methods and summary source are reranking signals, not proof</span>
+        <button class="btn small ghost" type="button" data-open-paper="${esc(paper.id)}">Inspect paper record</button>
+      </div>`).join("");
+    return `<div class="panel"><h3>Question-matched papers <span class="muted tiny">independently reranked within the selected scope</span></h3>
+      <div class="investigation-evidence">${rows || '<p class="muted">No paper in this selected scope matched the question terms. Try a broader scope or review the corpus coverage.</p>'}</div></div>`;
+  },
+  bindResultActions() {
+    $$("#investigator-results [data-trace-path]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const [candidateIndex, pathIndex] = button.dataset.tracePath.split(":").map(Number);
+        const path = this.result?.opportunities?.[candidateIndex]?.graph_paths?.[pathIndex];
+        if (!path?.nodes?.length) return;
+        const ids = path.nodes.map((node) => node.id);
+        location.hash = "#graph";
+        setTimeout(() => Graph.load({ seeds: ids, focus: ids[0], depth: 2, includeAllTypes: true, includePredicted: false }), 80);
+      });
+    });
+    $$("#investigator-results [data-open-paper]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const id = button.dataset.openPaper;
+        location.hash = "#papers";
+        setTimeout(() => Papers.open(id), 80);
+      });
+    });
+  },
+};
+
+function safeHttpUrl(value) {
+  if (!value) return "";
+  try {
+    const url = new URL(String(value || ""), location.origin);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+  } catch { return ""; }
+}
 
 /* ------------------------------------------------------------ gap finder */
 const GapFinder = { cache: [], highlighted: null,

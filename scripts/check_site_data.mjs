@@ -285,6 +285,7 @@ async function main() {
   const files = index.files || {};
   const topics = (index.precomputed && index.precomputed.topics) || [];
   const planQueries = (index.precomputed && index.precomputed.plan_queries) || [];
+  const investigations = (index.precomputed && index.precomputed.investigations) || [];
 
   /* ---------------------------------------------------- 1. shell + manifest */
   const html = await fs.readFile(path.join(siteDir, "index.html"), "utf8");
@@ -398,6 +399,12 @@ async function main() {
     } else if (name.startsWith("plan--")) {
       const query = planQueries.find((candidate) => slug(candidate) === name.slice("plan--".length, -".json".length));
       if (query) recordedRequests.set(name, () => call("/api/plan", { method: "POST", body: { query } }));
+    } else if (name.startsWith("investigation--")) {
+      const investigation = investigations.find((candidate) => candidate.file === name);
+      if (investigation) recordedRequests.set(name, () => call("/api/investigate", { method: "POST", body: {
+        question: investigation.question, scope_topic: investigation.scope_topic,
+        top_k: 5, retrieval_top_k: 24, depth: 2,
+      } }));
     } else if (name.startsWith("paper--")) {
       const payload = await readJson(path.join(siteDir, "data", name));
       recordedRequests.set(name, () => call(`/api/papers/${encodeURIComponent(payload.id)}`));
@@ -457,6 +464,44 @@ async function main() {
   checkTrue("POST /api/plan rejects values outside the whitelist (422)", "interactive",
     planError && planError.status === 422,
     "an unknown node type was not rejected");
+  const seedId = graph.nodes.find((node) => node.type === "Paper")?.id;
+  const seeded = await call("/api/graph", { method: "POST", body: { seeds: [seedId], depth: 0 } });
+  checkTrue("POST /api/graph preserves caller-provided seeds", "interactive",
+    Boolean(seedId) && seeded.nodes.some((node) => node.id === seedId) && seeded.request.seeds[0] === seedId,
+    "seeded graph request did not return its selected starting node");
+
+  if (investigations.length) {
+    const investigation = investigations[0];
+    const answer = await call("/api/investigate", { method: "POST", body: {
+      question: investigation.question, scope_topic: investigation.scope_topic,
+      top_k: 5, retrieval_top_k: 24, depth: 2,
+    } });
+    checkTrue("POST /api/investigate serves an exact recorded evidence workflow", "interactive",
+      Boolean(answer.static_snapshot?.note) && Boolean(answer.scope?.papers) &&
+        Array.isArray(answer.relevant_papers) && Array.isArray(answer.opportunities),
+      "the recorded investigation is missing scope, evidence, or its static-snapshot label");
+  }
+  let unsupportedInvestigation = null;
+  try {
+    await call("/api/investigate", { method: "POST", body: {
+      question: "An unrecorded static snapshot question about a new research problem?",
+      scope_topic: "AI Agents", top_k: 5, retrieval_top_k: 24, depth: 2,
+    } });
+  } catch (error) { unsupportedInvestigation = error; }
+  checkTrue("static Investigator refuses unrecorded question/scope pairs (501)", "interactive",
+    unsupportedInvestigation?.status === 501 && /no nearest-question answer is substituted/i.test(unsupportedInvestigation.message),
+    "an unrecorded static investigation was answered or failed without an honest unsupported notice");
+  let filteredInvestigation = null;
+  try {
+    await call("/api/investigate", { method: "POST", body: {
+      question: investigations[0]?.question, scope_topic: investigations[0]?.scope_topic,
+      year_min: 2023, top_k: 5, retrieval_top_k: 24, depth: 2,
+    } });
+  } catch (error) { filteredInvestigation = error; }
+  checkTrue("static Investigator refuses added year filters (501)", "interactive",
+    filteredInvestigation?.status === 501 && /exact unfiltered runs/i.test(filteredInvestigation.message),
+    "a filtered request received an unfiltered build-time answer");
+
   const gapFallback = await call("/api/gaps", { method: "POST", body: { topic: "quantum basket weaving", top_k: 5 } });
   checkTrue("POST /api/gaps for an unrecorded topic degrades honestly", "interactive",
     gapFallback.opportunities.length === 0 && Boolean(gapFallback.reason) && Boolean(gapFallback.safety_notice),

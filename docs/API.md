@@ -21,19 +21,11 @@ response carries `X-NEXUS-Engine` and `X-Response-Time-ms`.
 Engine in use, why, capability flags and graph counts. The first thing to check when the
 UI looks empty.
 
-```json
-{
-  "status": "ok",
-  "capabilities": { "neo4j_configured": false, "llm_configured": false, "embeddings_provider": false },
-  "store": {
-    "engine": "in-process",
-    "backend": { "backend": "in-process", "requested_backend": "in-process",
-                 "degraded": false, "reason": "Neo4j is not configured …", "warnings": [] }
-  },
-  "counts": { "nodes": 670, "edges": 3003, "labels": { "Paper": 198, "…": 0 },
-              "communities": 14, "predicted_links": 60, "conflicts": 21 }
-}
-```
+The returned counts are computed from the loaded corpus and selected backend; they are not
+hard-coded documentation fixtures. Check `store.engine`, `store.backend`,
+`store.graph_projection` (on Neo4j), `capabilities`, `counts`, and any warnings at runtime.
+When Neo4j is selected, most Python/GraphRAG/GapEngine computations use a Neo4j-hydrated
+local projection; the Investigator separately verifies its reported paths against Neo4j.
 
 ### `GET /api/algorithms`
 
@@ -124,7 +116,8 @@ Node detail with metric explanations and neighbours. Node ids are **hyphenated s
   "focus": "topic:agent-memory", "max_nodes": 260, "max_edges": 800 }
 ```
 
-Bounded graph payload: `nodes[]`, `edges[]`, `legend`, `focus`, `truncated`, `notes`.
+Bounded graph payload: `nodes[]`, `edges[]`, `legend`, `focus`, `truncated`, `notes`,
+plus the normalized `request`. Supply `seeds: [node_id, ...]` to center an evidence trace.
 Node objects are flat (`id`, `label`, `type`, `color`, `pagerank`, `betweenness`,
 `degree`, `year`, `url`, …) — ready for the 3D view without client-side mapping.
 
@@ -148,9 +141,12 @@ lets a judge walk the graph without ever loading it whole.
 
 ### `GET /api/graph/path?source=&target=&max_hops=4`
 
-Shortest relationship path between two entities, returned as node ids plus the edges that
-form it. Used by "how are these two connected?" and by the evidence panel. `found: false`
-when no path exists within the bound.
+Shortest path of observed corpus relationships between two entities. The response includes
+node ids, typed nodes, relationship direction/provenance, `source_engine`, and the traversal
+method. It excludes predicted and similarity links. With Neo4j selected, GraphRAG delegates
+to a timed, parameterized Cypher traversal (syntax is capped at four hops); the in-process
+store uses bounded BFS. `found: false` only means no path was returned within this graph and
+bound—it is not a claim about the full literature.
 
 ### `GET /api/communities` · `GET /api/communities/{index}`
 
@@ -186,6 +182,37 @@ Scores are **not** altered by query wording: ordering is
 The evidence bundle behind one candidate of the same request body: supporting papers with
 quotes, bridge papers, detected conflicts, community profiles, metrics and the paths that
 connect the two clusters — i.e. exactly what a reviewer should check.
+
+### `POST /api/investigate`
+
+```json
+{
+  "question": "How can agent memory improve coordination in multi-agent systems?",
+  "scope_topic": "AI Agents",
+  "year_min": null,
+  "year_max": null,
+  "field": null,
+  "top_k": 5,
+  "retrieval_top_k": 24,
+  "depth": 2
+}
+```
+
+`scope_topic` is optional; without it, the Investigator chooses a topic only when the
+question has a clear corpus-label match, and otherwise reports whole-corpus scope. The
+response includes the resolver match, corpus/selected-scope coverage, the actual GraphRAG
+retrieval engine and graph backend, independently reranked source records, candidates with
+unchanged prototype scores and separate question-relevance signals, evidence URLs,
+observed graph paths, counterevidence/limitations, and structured experiment proposals
+(intervention, comparator, predeclared primary outcome, and falsification criterion).
+The relevance scores and gap scores are heuristics, not calibrated probabilities. Claim
+tensions are hypotheses; absent paths/edges do not establish novelty or literature absence.
+
+For Neo4j, the response names the Neo4j-hydrated local projection used for scope,
+GraphRAG, ranking, and analytics; reported evidence paths are queried against Neo4j with a
+bounded traversal. For the static site, only the three exact question/scope pairs listed in
+`data/index.json` are supported, with default filters. Other pairs or filtered requests
+return HTTP 501; no nearest question is substituted.
 
 ### `POST /api/agent`
 

@@ -21,7 +21,7 @@ import json
 import logging
 import math
 import threading
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -114,12 +114,25 @@ class MemoryGraphStore:
                         props={"paper_count": record.get("papers", 0)},
                     )
 
+    @staticmethod
+    def _claim_provenance(node: GNode) -> dict[str, Any]:
+        value = node.props.get("provenance", {})
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+            except (TypeError, json.JSONDecodeError):
+                return {}
+            return decoded if isinstance(decoded, dict) else {}
+        return {}
+
     def _resolve_claims(self) -> None:
         records = [
             {
                 "id": c["id"],
                 "text": c["text"],
-                "paper": c.get("paper"),
+                "paper": paper_id(c["paper"]) if c.get("paper") else None,
                 "source": c.get("source", "corpus"),
                 "stance": c.get("stance", "reports"),
             }
@@ -153,7 +166,7 @@ class MemoryGraphStore:
                     predicted=True,
                 )
                 # paper-level projection of the same evidence (see model notes)
-                paper_a = self.nodes[a].props.get("provenance", {}).get("paper_id")
+                paper_a = conflict.get("paper_a")
                 if paper_a and paper_a in self.nodes:
                     self._add_edge(
                         paper_a,
@@ -182,7 +195,7 @@ class MemoryGraphStore:
                     continue
                 if other.props.get("stance") != "supports":
                     continue
-                if other.props.get("provenance", {}).get("paper_id") == record.get("paper"):
+                if record.get("paper") and self._claim_provenance(other).get("paper_id") == paper_id(record["paper"]):
                     continue
                 src_data = parsed.get(record["id"], {})
                 dst_data = parsed.get(other.id, {})
@@ -593,6 +606,96 @@ class MemoryGraphStore:
                 }
                 for n in page
             ],
+        }
+
+    # ----------------------------------------------------------- evidence paths
+    def trace_path(
+        self,
+        source_id: str,
+        target_id: str,
+        *,
+        max_hops: int = 4,
+        allowed_types: Sequence[str] | None = None,
+    ) -> dict[str, Any] | None:
+        """Find a bounded path over observed corpus relationships only.
+
+        Predicted links and similarity/co-occurrence projections are intentionally
+        excluded by default: the returned path is an auditable chain of source
+        records and curated taxonomy edges, not a generated association.
+        """
+        if source_id not in self.nodes or target_id not in self.nodes:
+            return None
+        limit = max(0, min(int(max_hops), 4))
+        allowed = set(allowed_types or {
+            "STUDIES", "USES_METHOD", "USES_DATASET", "CITES", "AUTHORED",
+            "MAKES_CLAIM", "AFFILIATED_WITH",
+        })
+        if source_id == target_id:
+            path_ids = [source_id]
+            path_edges: list[tuple[str, str, GEdge]] = []
+        else:
+            adjacency: dict[str, list[tuple[str, GEdge]]] = defaultdict(list)
+            for edge in self.edges:
+                if edge.type not in allowed or edge.props.get("predicted"):
+                    continue
+                if edge.src not in self.nodes or edge.dst not in self.nodes:
+                    continue
+                adjacency[edge.src].append((edge.dst, edge))
+                adjacency[edge.dst].append((edge.src, edge))
+            for node_id in adjacency:
+                adjacency[node_id].sort(key=lambda item: (item[0], item[1].type))
+
+            queue = deque([(source_id, [source_id], [])])
+            visited = {source_id}
+            found: tuple[list[str], list[tuple[str, str, GEdge]]] | None = None
+            while queue:
+                current, path_ids, path_edges = queue.popleft()
+                if len(path_edges) >= limit:
+                    continue
+                for neighbour, edge in adjacency.get(current, []):
+                    if neighbour in visited:
+                        continue
+                    next_ids = [*path_ids, neighbour]
+                    next_edges = [*path_edges, (current, neighbour, edge)]
+                    if neighbour == target_id:
+                        found = (next_ids, next_edges)
+                        queue.clear()
+                        break
+                    visited.add(neighbour)
+                    queue.append((neighbour, next_ids, next_edges))
+                if found:
+                    break
+            if not found:
+                return None
+            path_ids, path_edges = found
+
+        nodes = [
+            {"id": node_id, "type": self.nodes[node_id].label, "label": self.nodes[node_id].name}
+            for node_id in path_ids
+        ]
+        hops = []
+        for traversal_source, traversal_target, edge in path_edges:
+            properties = {
+                key: edge.props[key]
+                for key in ("provenance", "weight", "score", "similarity", "predicted")
+                if edge.props.get(key) is not None
+            }
+            hops.append({
+                "from": traversal_source,
+                "to": traversal_target,
+                "type": edge.type,
+                "relationship_source": edge.src,
+                "relationship_target": edge.dst,
+                "direction": "outgoing" if edge.src == traversal_source else "incoming",
+                "provenance": edge.props.get("provenance"),
+                "properties": properties,
+            })
+        return {
+            "nodes": nodes,
+            "hops": hops,
+            "hops_count": len(hops),
+            "source_engine": self.engine_name,
+            "method": "bounded breadth-first search over loaded graph relationships",
         }
 
     # ----------------------------------------------------------- subgraphs

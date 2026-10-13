@@ -26,6 +26,23 @@ def test_papers_keep_their_source_url(store):
     assert all(n.props.get("url", "").startswith("https://arxiv.org/abs/") for n in papers)
 
 
+def test_claim_nodes_keep_their_source_paper_and_url(store):
+    claim = next(node for node in store.nodes.values() if node.label == "Claim")
+    provenance = claim.props.get("provenance")
+    assert provenance["paper_id"].startswith("paper:")
+    assert provenance["url"].startswith("https://arxiv.org/abs/")
+
+
+def test_claim_tension_sources_resolve_to_paper_nodes(store):
+    conflicts = store.conflicts_payload(limit=20)
+    assert conflicts
+    for conflict in conflicts:
+        assert conflict["source_a"] in store.nodes
+        assert conflict["source_b"] in store.nodes
+        assert conflict["url_a"].startswith("https://arxiv.org/abs/")
+        assert conflict["url_b"].startswith("https://arxiv.org/abs/")
+
+
 def test_search_and_node_detail(store):
     hits = store.search("memory", limit=5)
     assert hits and hits[0]["id"].startswith(("paper:", "topic:", "claim:"))

@@ -1,18 +1,17 @@
 """Neo4j implementation of the NEXUS graph store.
 
-Neo4j is the **store of record**: `corpus → Cypher (UNWIND/MERGE, parameters only)
-→ Neo4j`, and every algorithm either runs *inside* Neo4j (GDS, when the plugin is
-available) or is computed on a hydrated working set and then written back, so a
-plain Cypher query in Neo4j Browser sees exactly the numbers the UI shows:
+Neo4j is the configured store of record: the shipped corpus is imported with stable IDs
+and idempotent `UNWIND`/`MERGE` statements, then nodes and edges are hydrated into a local
+working projection. Scope selection, GraphRAG, gap/candidate analysis, and most Python graph
+workflows operate on that projection. Optional GDS routines run in Neo4j for supported
+metrics when enabled and available. Investigator evidence paths are separately checked
+against Neo4j using a bounded, time-limited Cypher traversal.
 
-    MATCH (p:Paper) RETURN p.title, p.pagerank, p.betweenness, p.community
-    ORDER BY p.pagerank DESC LIMIT 10;
-
-Why it subclasses the in-process store: the enrichment pipeline (embeddings,
-similarity, community profiling, claim conflicts) is identical for both engines,
-so the API, GraphRAG, agent and gap engine never need to know which one answered.
-Only `load()`, the analytics step and the write-back differ. Nothing here contains
-a credential or a concatenated Cypher string — values are always bound parameters.
+The class subclasses the in-process store to reuse graph enrichment and API semantics, not
+to imply that every endpoint executes remotely. Data values and IDs are bound parameters.
+Taxonomy labels/relationship types come only from fixed code, and the path query uses a
+static four-hop syntax ceiling plus a bound caller limit. Credentials are never included in
+query text or safe connection errors.
 """
 
 from __future__ import annotations
@@ -24,6 +23,7 @@ from typing import Any, Sequence
 
 from backend.algorithms import kernel
 from backend.config import get_settings
+from backend.ingestion.graph_builder import claim_id, dataset_id, method_id, paper_id, topic_id
 from backend.models.graph import GEdge, GNode
 from backend.store.memory_store import MemoryGraphStore
 
@@ -61,42 +61,67 @@ class Neo4jGraphStore(MemoryGraphStore):
         self.settings = get_settings()
         self._driver = None
         self.gds_available = False
+        self.connection_verified = False
         self.cypher_statements = 0
+        self.schema_warnings: list[str] = []
         self.bootstrap_report: dict[str, Any] = {}
 
     # ------------------------------------------------------------- driver
     def connect(self):
-        from neo4j import GraphDatabase  # imported lazily: the demo runs without the driver
+        from neo4j import GraphDatabase, Query  # imported lazily: memory mode needs no driver
 
         cfg = self.settings.neo4j
         if not cfg.password:
             raise Neo4jError("NEO4J_PASSWORD is empty — refusing to connect with no credential")
-        self._driver = GraphDatabase.driver(
-            cfg.uri,
-            auth=(cfg.username, cfg.password),
-            connection_timeout=cfg.timeout,
-            max_connection_lifetime=300,
-        )
-        self._driver.verify_connectivity()
-        with self._driver.session(database=cfg.database) as session:
+        try:
+            self._driver = GraphDatabase.driver(
+                cfg.uri,
+                auth=(cfg.username, cfg.password),
+                connection_timeout=max(0.1, cfg.timeout),
+                max_connection_lifetime=300,
+            )
+            # verify_connectivity forces an actual connection/auth check instead of
+            # accepting an untested driver object and failing much later in a route.
+            self._driver.verify_connectivity()
             self.gds_available = False
             if cfg.use_gds:
                 try:
-                    record = session.run(
-                        "CALL gds.version() YIELD gdsVersion RETURN gdsVersion"
-                    ).single()
-                    self.gds_available = bool(record)
+                    with self._driver.session(database=cfg.database) as session:
+                        record = session.run(
+                            Query("CALL gds.version() YIELD gdsVersion RETURN gdsVersion",
+                                  timeout=max(0.1, cfg.query_timeout))
+                        ).single()
+                        self.gds_available = bool(record)
                 except Exception:  # noqa: BLE001 - GDS is optional
                     self.gds_available = False
-        return self
+            self.connection_verified = True
+            return self
+        except Exception as exc:  # noqa: BLE001 - convert connection failures to safe actionable status
+            if self._driver is not None:
+                try:
+                    self._driver.close()
+                except Exception:  # noqa: BLE001 - preserve the original connection error
+                    pass
+            self._driver = None
+            self.connection_verified = False
+            if isinstance(exc, Neo4jError):
+                raise
+            raise Neo4jError(
+                f"Neo4j connectivity verification failed ({type(exc).__name__}) for database "
+                f"'{cfg.database}'. Check NEO4J_URI, NEO4J_DATABASE, NEO4J_USERNAME, "
+                "NEO4J_PASSWORD, network access, and the server's Bolt endpoint."
+            ) from exc
 
     def run_cypher(self, query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-        """Execute one parameterised statement and return rows as dicts."""
+        """Execute one parameterised, time-bounded statement and return rows as dicts."""
+        from neo4j import Query
+
         if self._driver is None:
             raise Neo4jError("Neo4j driver is not connected")
         self.cypher_statements += 1
+        statement = Query(query, timeout=max(0.1, self.settings.neo4j.query_timeout))
         with self._driver.session(database=self.settings.neo4j.database) as session:
-            result = session.run(query, params or {})
+            result = session.run(statement, params or {})
             return [dict(row) for row in result]
 
     def close(self) -> None:
@@ -120,51 +145,64 @@ class Neo4jGraphStore(MemoryGraphStore):
             "CREATE FULLTEXT INDEX nexus_fulltext IF NOT EXISTS FOR (n:Paper|Topic|Method|Dataset|Claim) "
             "ON EACH [n.name, n.title, n.abstract, n.text]",
         ]
+        self.schema_warnings = []
         for statement in statements:
             try:
                 self.run_cypher(statement)
-            except Exception as exc:  # noqa: BLE001 - constraints may need admin rights
-                log.debug("schema statement skipped: %s (%s)", statement[:60], exc)
+            except Exception as exc:  # noqa: BLE001 - permissions/version may prevent DDL
+                words = statement.split()
+                marker = "CONSTRAINT" if "CONSTRAINT" in words else "INDEX"
+                object_name = words[words.index(marker) + 1] if marker in words else "unknown"
+                warning = (
+                    f"Could not ensure Neo4j schema object {object_name} ({type(exc).__name__}); "
+                    "verify database version and schema privileges."
+                )
+                self.schema_warnings.append(warning)
+                log.warning("%s", warning)
 
     # --------------------------------------------------------------- load
     def load(self) -> None:
         with self._lock:
-            if not self.corpus_path.exists():
-                raise FileNotFoundError(
-                    f"corpus not found at {self.corpus_path} — run `python3 scripts/build_corpus.py`"
+            try:
+                if not self.corpus_path.exists():
+                    raise FileNotFoundError(
+                        f"corpus not found at {self.corpus_path} — run `python3 scripts/build_corpus.py`"
+                    )
+                self._corpus = json.loads(self.corpus_path.read_text(encoding="utf-8"))
+                if self._driver is None:
+                    self.connect()
+                self.ensure_schema()
+                self._load_corpus_into_neo4j()
+
+                self.bootstrap_report = self._database_report()
+                self._hydrate()
+                self._add_corpus_taxonomy_nodes()
+                self._resolve_claims()
+
+                self.analytics = self.analytics_engine.compute(
+                    self.revision, list(self.nodes.values()), self.edges, force=True
                 )
-            self._corpus = json.loads(self.corpus_path.read_text(encoding="utf-8"))
-            if self._driver is None:
-                self.connect()
-            self.ensure_schema()
-            self._load_corpus_into_neo4j()
-
-            self.bootstrap_report = self._database_report()
-            self._hydrate()
-            self._add_corpus_taxonomy_nodes()
-            self._resolve_claims()
-
-            self.analytics = self.analytics_engine.compute(
-                self.revision, list(self.nodes.values()), self.edges, force=True
-            )
-            if self.enable_similarity:
-                self._build_similarity()
-            self._assign_communities()
-            self._rebuild_community_profiles()
-            self.analytics = self.analytics_engine.compute(
-                self.revision, list(self.nodes.values()), self.edges, force=True
-            )
-            self._run_gds_analytics()
-            self._write_back()
-            log.info(
-                "neo4j graph ready: %d nodes / %d edges (gds=%s, statements=%d)",
-                len(self.nodes), len(self.edges), self.gds_available, self.cypher_statements,
-            )
+                if self.enable_similarity:
+                    self._build_similarity()
+                self._assign_communities()
+                self._rebuild_community_profiles()
+                self.analytics = self.analytics_engine.compute(
+                    self.revision, list(self.nodes.values()), self.edges, force=True
+                )
+                self._run_gds_analytics()
+                self._write_back()
+                log.info(
+                    "neo4j graph ready: %d nodes / %d edges (gds=%s, statements=%d)",
+                    len(self.nodes), len(self.edges), self.gds_available, self.cypher_statements,
+                )
+            except Exception:
+                self.close()
+                raise
 
     #: Relationship-type whitelist for the generic loader (no dynamic concatenation
     #: from user input: the value comes from a fixed tuple).
     def _load_corpus_into_neo4j(self) -> None:
-        papers = self._corpus.get("papers", [])
+        papers = self._corpus["papers"]
         self.run_cypher(
             """
             UNWIND $rows AS row
@@ -174,19 +212,73 @@ class Neo4jGraphStore(MemoryGraphStore):
                 p.field = row.field, p.summary_source = row.summary_source,
                 p.author_status = row.author_status, p.corpus_tier = row.corpus_tier
             """,
-            {"rows": [{"id": f"paper:{p['arxiv_id']}", **{
-                k: p.get(k) for k in ("title", "summary", "year", "url", "field",
-                                      "summary_source", "author_status", "corpus_tier")
-            }, "arxiv_id": p["arxiv_id"]} for p in papers]},
+            {"rows": [
+                {
+                    "id": paper_id(p["arxiv_id"]),
+                    "arxiv_id": p["arxiv_id"],
+                    **{key: p.get(key) for key in (
+                        "title", "summary", "year", "url", "field", "summary_source",
+                        "author_status", "corpus_tier",
+                    )},
+                }
+                for p in papers
+            ]},
         )
-        taxonomy = {
-            "STUDIES": ("topics", "Topic"),
-            "USES_METHOD": ("methods", "Method"),
-            "USES_DATASET": ("datasets", "Dataset"),
-        }
-        for rel, (key, label) in taxonomy.items():
+
+        # Older NEXUS builds used raw arXiv claim IDs in Neo4j. Migrate them once
+        # to the same stable claim:<paper>:<ordinal> IDs emitted by GraphBuilder.
+        self.run_cypher(
+            """
+            MATCH (c:Claim)
+            WHERE c.id IS NOT NULL AND NOT c.id STARTS WITH 'claim:'
+            SET c.id = 'claim:' + c.id
+            RETURN count(c) AS migrated
+            """
+        )
+
+        taxonomy_rows = []
+        for paper in papers:
+            pid = paper_id(paper["arxiv_id"])
+            if paper.get("field"):
+                taxonomy_rows.append({
+                    "paper": pid,
+                    "name": paper["field"],
+                    "id": topic_id(paper["field"]),
+                    "topic_kind": "field",
+                    "weight": 0.6,
+                    "provenance": "paper.field taxonomy",
+                })
+            for name in paper.get("topics", []):
+                taxonomy_rows.append({
+                    "paper": pid,
+                    "name": name,
+                    "id": topic_id(name),
+                    "topic_kind": "concept",
+                    "weight": 1.0,
+                    "provenance": "curated taxonomy",
+                })
+        if taxonomy_rows:
+            self.run_cypher(
+                """
+                UNWIND $rows AS row
+                MATCH (p:Paper {id: row.paper})
+                MERGE (n:Topic {id: row.id})
+                SET n.name = row.name,
+                    n.topic_kind = CASE WHEN n.topic_kind = 'field' OR row.topic_kind = 'field'
+                                        THEN 'field' ELSE 'concept' END
+                MERGE (p)-[r:STUDIES]->(n)
+                SET r.weight = row.weight, r.provenance = row.provenance
+                """,
+                {"rows": taxonomy_rows},
+            )
+
+        taxonomy = (
+            ("USES_METHOD", "methods", "Method", method_id),
+            ("USES_DATASET", "datasets", "Dataset", dataset_id),
+        )
+        for rel, key, label, id_fn in taxonomy:
             rows = [
-                {"paper": f"paper:{p['arxiv_id']}", "name": name, "id": f"{label.lower()}:{_slug(name)}",
+                {"paper": paper_id(p["arxiv_id"]), "name": name, "id": id_fn(name),
                  "provenance": "curated taxonomy"}
                 for p in papers
                 for name in p.get(key, [])
@@ -204,8 +296,9 @@ class Neo4jGraphStore(MemoryGraphStore):
                 """,
                 {"rows": rows},
             )
+
         author_rows = [
-            {"paper": f"paper:{p['arxiv_id']}", "name": author, "id": f"author:{_slug(author)}"}
+            {"paper": paper_id(p["arxiv_id"]), "name": author, "id": f"author:{_slug(author)}"}
             for p in papers
             for author in p.get("authors", [])
         ]
@@ -217,12 +310,12 @@ class Neo4jGraphStore(MemoryGraphStore):
                 MERGE (a:Author {id: row.id})
                 SET a.name = row.name
                 MERGE (a)-[r:AUTHORED]->(p)
-                SET r.provenance = 'arxiv listing'
+                SET r.provenance = 'arXiv public listing'
                 """,
                 {"rows": author_rows},
             )
         citation_rows = [
-            {"source": f"paper:{c['source']}", "target": f"paper:{c['target']}",
+            {"source": paper_id(c["source"]), "target": paper_id(c["target"]),
              "provenance": c.get("citation_source", "curated-lineage")}
             for c in self._corpus.get("citations", [])
         ]
@@ -237,12 +330,24 @@ class Neo4jGraphStore(MemoryGraphStore):
                 """,
                 {"rows": citation_rows},
             )
-        claim_rows = [
-            {"id": c["id"], "paper": f"paper:{c['paper']}", "text": c["text"],
-             "stance": c.get("stance", "reports"), "source": c.get("source", "corpus"),
-             "provenance": json.dumps(c.get("provenance", {}))}
-            for c in self._corpus.get("claims", [])
-        ]
+        papers_by_id = {p.get("arxiv_id"): p for p in papers}
+        claim_rows = []
+        for claim in self._corpus.get("claims", []):
+            source_paper = papers_by_id.get(claim.get("paper"), {})
+            raw_provenance = claim.get("provenance")
+            provenance = dict(raw_provenance) if isinstance(raw_provenance, dict) else {}
+            provenance.setdefault("paper_id", paper_id(claim["paper"]))
+            if source_paper.get("url"):
+                provenance.setdefault("url", source_paper["url"])
+            provenance.setdefault("annotation_source", claim.get("source", "corpus"))
+            claim_rows.append({
+                "id": claim_id(claim["id"]),
+                "paper": paper_id(claim["paper"]),
+                "text": claim["text"],
+                "stance": claim.get("stance", "reports"),
+                "source": claim.get("source", "corpus"),
+                "provenance": json.dumps(provenance, ensure_ascii=False),
+            })
         if claim_rows:
             self.run_cypher(
                 """
@@ -264,7 +369,7 @@ class Neo4jGraphStore(MemoryGraphStore):
             )
             return {"labels": {row["label"]: row["n"] for row in rows}}
         except Exception as exc:  # noqa: BLE001
-            return {"error": str(exc)}
+            return {"error": type(exc).__name__}
 
     # ------------------------------------------------------------ hydrate
     def _hydrate(self) -> None:
@@ -284,6 +389,12 @@ class Neo4jGraphStore(MemoryGraphStore):
             if not labels or not row["id"]:
                 continue
             props = {k: v for k, v in (row["props"] or {}).items() if k not in {"id", "name", "title"}}
+            if labels[0] == "Claim" and isinstance(props.get("provenance"), str):
+                try:
+                    decoded_provenance = json.loads(props["provenance"])
+                except (TypeError, json.JSONDecodeError):
+                    decoded_provenance = {}
+                props["provenance"] = decoded_provenance if isinstance(decoded_provenance, dict) else {}
             self.nodes[row["id"]] = GNode(id=row["id"], label=labels[0], name=row["name"] or row["id"], props=props)
 
         edge_rows = self.run_cypher(
@@ -304,9 +415,96 @@ class Neo4jGraphStore(MemoryGraphStore):
         self.edges = [e for e in self.edges if e.type not in {"SIMILAR_TO", "RELATED_TO"}]
         self.revision += 1
 
+    def trace_path(
+        self,
+        source_id: str,
+        target_id: str,
+        *,
+        max_hops: int = 4,
+        allowed_types: Sequence[str] | None = None,
+    ) -> dict[str, Any] | None:
+        """Verify a short evidence path against Neo4j itself using bound IDs.
+
+        This is intentionally not a local-hydration fallback: when Neo4j was selected,
+        the returned path (or its absence) comes from a bounded Cypher traversal of the
+        configured database. Association/prediction edges are excluded.
+        """
+        if self._driver is None:
+            raise Neo4jError("Neo4j driver is not connected")
+        if source_id == target_id and source_id in self.nodes:
+            return {
+                "nodes": [{"id": source_id, "type": self.nodes[source_id].label, "label": self.nodes[source_id].name}],
+                "hops": [],
+                "hops_count": 0,
+                "source_engine": "neo4j",
+                "method": "parameterized Neo4j Cypher shortest path",
+            }
+        max_hops = max(1, min(int(max_hops), 4))
+        observed_types = {
+            "STUDIES", "USES_METHOD", "USES_DATASET", "CITES", "AUTHORED",
+            "MAKES_CLAIM", "AFFILIATED_WITH",
+        }
+        allowed = sorted(observed_types.intersection(allowed_types or observed_types))
+        if not allowed:
+            return None
+        query = """
+            MATCH (source {id: $source_id}), (target {id: $target_id})
+            MATCH path = shortestPath((source)-[rels:STUDIES|USES_METHOD|USES_DATASET|CITES|AUTHORED|MAKES_CLAIM|AFFILIATED_WITH*1..4]-(target))
+            WHERE length(path) <= $max_hops
+              AND all(rel IN rels WHERE type(rel) IN $allowed_types
+                      AND coalesce(rel.predicted, false) = false)
+            RETURN
+                [n IN nodes(path) | {id: n.id, type: head(labels(n)),
+                                     label: coalesce(n.title, n.name, n.id)}] AS path_nodes,
+                [rel IN relationships(path) | {source: startNode(rel).id,
+                                                target: endNode(rel).id,
+                                                type: type(rel),
+                                                properties: properties(rel)}] AS path_edges
+            LIMIT 1
+        """
+        rows = self.run_cypher(query, {
+            "source_id": source_id,
+            "target_id": target_id,
+            "max_hops": max_hops,
+            "allowed_types": allowed,
+        })
+        if not rows:
+            return None
+        row = rows[0]
+        nodes = row.get("path_nodes") or []
+        relationships = row.get("path_edges") or []
+        if not nodes or len(relationships) + 1 != len(nodes):
+            return None
+        hops = []
+        for index, relationship in enumerate(relationships):
+            current_id = nodes[index]["id"]
+            next_id = nodes[index + 1]["id"]
+            properties = relationship.get("properties") or {}
+            hops.append({
+                "from": current_id,
+                "to": next_id,
+                "type": relationship.get("type"),
+                "relationship_source": relationship.get("source"),
+                "relationship_target": relationship.get("target"),
+                "direction": "outgoing" if relationship.get("source") == current_id else "incoming",
+                "provenance": properties.get("provenance"),
+                "properties": {
+                    key: properties[key]
+                    for key in ("provenance", "weight", "score", "similarity", "predicted")
+                    if properties.get(key) is not None
+                },
+            })
+        return {
+            "nodes": nodes,
+            "hops": hops,
+            "hops_count": len(hops),
+            "source_engine": "neo4j",
+            "method": f"parameterized Neo4j Cypher shortest path (maximum {max_hops} hops)",
+        }
+
     # ------------------------------------------------------------ analytics
     def _run_gds_analytics(self) -> None:
-        """Prefer GDS for PageRank / Louvain / betweenness; else keep the native kernel."""
+        """Prefer GDS for PageRank / Louvain / betweenness; else keep local metrics."""
         if not self.gds_available:
             return
         try:
@@ -358,7 +556,6 @@ class Neo4jGraphStore(MemoryGraphStore):
                     "louvain": "neo4j-gds",
                     "betweenness": "neo4j-gds",
                 })
-            # re-derive community nodes/profiles from the GDS partition
             self._assign_communities()
             self._rebuild_community_profiles()
             self.analytics = self.analytics_engine.compute(
@@ -371,9 +568,9 @@ class Neo4jGraphStore(MemoryGraphStore):
                 self.analytics.engines.update({
                     "pagerank": "neo4j-gds", "louvain": "neo4j-gds", "betweenness": "neo4j-gds",
                 })
-        except Exception as exc:  # noqa: BLE001 - fall back to the native kernel
+        except Exception as exc:  # noqa: BLE001 - retain the local analytics fallback
             self.gds_available = False
-            log.info("GDS analytics unavailable (%s) — keeping native-kernel metrics", exc)
+            log.info("GDS analytics unavailable (%s) — keeping local-projection metrics", type(exc).__name__)
 
     def _write_back(self) -> None:
         """Persist derived metrics, communities, conflicts and predictions to Neo4j."""
@@ -408,9 +605,10 @@ class Neo4jGraphStore(MemoryGraphStore):
                     c.top_topics = row.topics, c.rank = row.rank
                 """,
                 {"rows": [
-                    {"id": p["id"], "name": p["name"], "index": p["community_index"],
-                     "papers": p["paper_count"], "topics": p["top_topics"][:8], "rank": p.get("rank", 0)}
-                    for p in self.community_profiles
+                    {"id": profile["id"], "name": profile["name"],
+                     "index": profile["community_index"], "papers": profile["paper_count"],
+                     "topics": profile["top_topics"][:8], "rank": profile.get("rank", 0)}
+                    for profile in self.community_profiles
                 ]},
             )
             self.run_cypher(
@@ -438,9 +636,10 @@ class Neo4jGraphStore(MemoryGraphStore):
                     r.provenance = 'claim-conflict-resolver', r.predicted = true
                 """,
                 {"rows": [
-                    {"a": c["claim_a"], "b": c["claim_b"], "score": c["score"],
-                     "kind": c.get("kind"), "reasons": c.get("reasons", [])}
-                    for c in self.conflicts
+                    {"a": claim_id(conflict["claim_a"]), "b": claim_id(conflict["claim_b"]),
+                     "score": conflict["score"], "kind": conflict.get("kind"),
+                     "reasons": conflict.get("reasons", [])}
+                    for conflict in self.conflicts
                 ]},
             )
         if self.predicted_links:
@@ -459,13 +658,27 @@ class Neo4jGraphStore(MemoryGraphStore):
 
     # ---------------------------------------------------------------- info
     def health(self) -> dict[str, Any]:
+        from urllib.parse import urlsplit
+
         base = super().health()
         cfg = self.settings.neo4j
+        try:
+            parsed = urlsplit(cfg.uri)
+            host = parsed.hostname or "configured"
+            if parsed.port:
+                host += f":{parsed.port}"
+            safe_uri = f"{parsed.scheme}://{host}" if parsed.scheme else "configured"
+        except ValueError:
+            safe_uri = "configured"
         base.update({
             "engine": "neo4j" + ("+gds" if self.gds_available else ""),
-            "neo4j_uri": cfg.uri,
+            "neo4j_uri": safe_uri,
             "database": cfg.database,
+            "connection_verified": self.connection_verified,
+            "graph_projection": "Neo4j-hydrated local projection for Python/GraphRAG/GapEngine computations; Investigator evidence paths are checked against Neo4j with bounded parameterized Cypher.",
             "gds_available": self.gds_available,
+            "query_timeout_seconds": cfg.query_timeout,
+            "schema_warnings": list(self.schema_warnings),
             "cypher_statements": self.cypher_statements,
             "bootstrap": self.bootstrap_report,
         })
@@ -479,12 +692,15 @@ class Neo4jGraphStore(MemoryGraphStore):
     # ---------------------------------------------------- cypher utilities
     def parameterised_examples(self) -> list[dict[str, str]]:
         """The queries shipped in `cypher/queries/`, surfaced for the UI/API docs."""
-        directory = self.settings.repo_root / "cypher" / "queries"
-        examples = []
-        if directory.exists():
-            for path in sorted(directory.glob("*.cypher")):
-                examples.append({"name": path.stem, "query": path.read_text(encoding="utf-8").strip()})
-        return examples
+        from pathlib import Path
+
+        directory = Path(__file__).resolve().parents[2] / "cypher" / "queries"
+        if not directory.exists():
+            return []
+        return [
+            {"name": path.stem, "query": path.read_text(encoding="utf-8").strip()}
+            for path in sorted(directory.glob("*.cypher"))
+        ]
 
 
 def _slug(text: str) -> str:

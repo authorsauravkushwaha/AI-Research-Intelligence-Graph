@@ -27,6 +27,7 @@
 
   <nav id="nav" aria-label="Sections">
     <a href="#home" data-view="home">Home</a>
+    <a href="#investigate" data-view="investigate" class="killer">Investigator</a>
     <a href="#explorer" data-view="explorer">Research Explorer</a>
     <a href="#graph" data-view="graph">Knowledge Graph</a>
     <a href="#gaps" data-view="gaps" class="killer">Find Research Gaps</a>
@@ -56,7 +57,7 @@
           number is traceable to the records that produced it.
         </p>
         <div class="hero-actions">
-          <a class="btn primary" href="#gaps">Find research gaps</a>
+          <a class="btn primary" href="#investigate">Start an investigation</a>
           <a class="btn" href="#graph">Open the 3D graph</a>
           <a class="btn ghost" href="/docs" target="_blank" rel="noreferrer">API docs</a>
         </div>
@@ -118,6 +119,62 @@
       <h3>Corpus &amp; provenance</h3>
       <div id="home-provenance" class="provenance"></div>
     </div>
+  </section>
+
+  <!-- ============================================ INVESTIGATOR ============ -->
+  <section id="view-investigate" class="view">
+    <div class="panel investigator-hero">
+      <div class="eyebrow">NEXUS / Evidence-led research workflow</div>
+      <h2>Turn a research question into a reviewable investigation</h2>
+      <p class="muted investigator-intro">
+        Retrieve and rerank papers in a declared corpus scope, inspect candidate connections through
+        source-backed graph paths, review limitations and claim-tension leads, then leave with a
+        falsifiable experiment design. Nothing here is a novelty verdict.
+      </p>
+      <form id="investigator-form">
+        <label class="investigator-question" for="investigator-question">
+          <span>Research question</span>
+          <textarea id="investigator-question" name="question" rows="3" minlength="8" maxlength="600" required
+            aria-describedby="investigator-question-help">How can agent memory improve coordination in multi-agent systems?</textarea>
+        </label>
+        <p id="investigator-question-help" class="tiny muted">Be specific about the mechanism, setting, or outcome you want to investigate.</p>
+        <div class="investigator-filters">
+          <label for="investigator-scope">Corpus scope
+            <select id="investigator-scope" name="scope_topic">
+              <option value="">Infer from question / whole corpus</option>
+              <option value="AI Agents" selected>AI Agents</option>
+              <option value="Tool Use">Tool Use</option>
+              <option value="Multi-Agent Systems">Multi-Agent Systems</option>
+              <option value="Reasoning">Reasoning</option>
+              <option value="Retrieval-Augmented Generation">Retrieval-Augmented Generation</option>
+            </select>
+          </label>
+          <label for="investigator-field">Field filter <span class="muted">optional</span>
+            <input id="investigator-field" name="field" maxlength="120" placeholder="e.g. Agent Memory" />
+          </label>
+          <label for="investigator-year-min">Year from <span class="muted">optional</span>
+            <input id="investigator-year-min" name="year_min" type="number" min="1900" max="2100" inputmode="numeric" placeholder="2019" />
+          </label>
+          <label for="investigator-year-max">Year to <span class="muted">optional</span>
+            <input id="investigator-year-max" name="year_max" type="number" min="1900" max="2100" inputmode="numeric" placeholder="2025" />
+          </label>
+        </div>
+        <div class="investigator-actions">
+          <button class="btn primary" id="investigator-run" type="submit">Run investigation <span aria-hidden="true">→</span></button>
+          <span class="tiny muted">Offline-capable · no LLM key required · source records linked</span>
+        </div>
+      </form>
+      <div class="demo-prompts">
+        <div class="tiny muted">Try an auditable demo question</div>
+        <div class="chips" id="investigator-examples">
+          <button class="chip" type="button" data-scope="AI Agents" data-question="How can agent memory improve coordination in multi-agent systems?">Memory + coordination</button>
+          <button class="chip" type="button" data-scope="Tool Use" data-question="Which planning strategies could improve API tool use in AI agents?">Planning + API tool use</button>
+          <button class="chip" type="button" data-scope="Retrieval-Augmented Generation" data-question="How might graph retrieval support factual reliability in retrieval-augmented generation?">RAG + factual reliability</button>
+        </div>
+      </div>
+    </div>
+    <p id="investigator-status" class="panel compact investigator-status" role="status" aria-live="polite">Ready. Choose a question and scope to begin.</p>
+    <div id="investigator-results" aria-live="polite"></div>
   </section>
 
   <!-- ================================================ EXPLORER ============ -->

@@ -48,6 +48,30 @@ def test_graph_payload_is_bounded(api):
     assert payload["legend"]["node_colors"]
 
 
+def test_graph_request_can_be_seeded_for_trace_navigation(api):
+    response = api.post("/api/graph", json={
+        "seeds": ["paper:2210.03629"], "depth": 1, "max_nodes": 40, "max_edges": 80,
+    })
+    assert response.status_code == 200
+    payload = response.json()
+    assert "paper:2210.03629" in {node["id"] for node in payload["nodes"]}
+    assert payload["request"]["seeds"] == ["paper:2210.03629"]
+
+
+def test_graph_path_reports_observed_relationship_provenance(api):
+    response = api.get("/api/graph/path", params={
+        "source": "paper:2210.03629", "target": "topic:tool-use", "max_hops": 2,
+    })
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["found"] is True
+    assert payload["source_engine"] == "in-process"
+    assert payload["node_labels"][0]["id"] == "paper:2210.03629"
+    assert payload["node_labels"][-1]["id"] == "topic:tool-use"
+    assert payload["hops"][0]["type"] == "STUDIES"
+    assert payload["hops"][0]["provenance"]
+
+
 def test_expand_and_node_detail(api):
     detail = api.get("/api/nodes/paper:2310.08560").json()
     assert detail["label"].startswith("MemGPT")

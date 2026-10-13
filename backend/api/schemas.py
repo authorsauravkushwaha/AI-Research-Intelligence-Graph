@@ -31,6 +31,21 @@ class AgentRequest(BaseModel):
     topic_hint: str | None = Field(default=None, max_length=160)
 
 
+class InvestigationRequest(BaseModel):
+    question: str = Field(
+        min_length=8,
+        max_length=600,
+        examples=["How can agent memory improve coordination in multi-agent systems?"],
+    )
+    scope_topic: str | None = Field(default=None, max_length=160, examples=["AI Agents"])
+    year_min: int | None = Field(default=None, ge=1900, le=2100)
+    year_max: int | None = Field(default=None, ge=1900, le=2100)
+    field: str | None = Field(default=None, max_length=120)
+    top_k: int = Field(default=5, ge=1, le=8)
+    retrieval_top_k: int = Field(default=24, ge=5, le=50)
+    depth: int = Field(default=2, ge=1, le=3)
+
+
 class ReportRequest(GapRequest):
     executive_summary: str | None = Field(default=None, max_length=4000)
 

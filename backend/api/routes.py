@@ -31,6 +31,7 @@ from backend.api.schemas import (
     ExportRequest,
     GapRequest,
     GraphRequest,
+    InvestigationRequest,
     ReportRequest,
 )
 import datetime as _dt
@@ -39,6 +40,7 @@ from backend.config import capability_flags, get_settings
 from backend.engine.explorer import Explorer
 from backend.models.graph import ASSOCIATIVE_RELS, NODE_COLORS, REL_TYPES
 from backend.engine.gaps import SAFETY_NOTICE, GapEngine, score_model
+from backend.engine.investigator import ResearchInvestigator
 from backend.graph.factory import get_state
 from backend.rag.graphrag import GraphRAG
 from backend.services.export import export_graph
@@ -56,6 +58,7 @@ _graphrag = GraphRAG(_store)
 _registry = build_registry(_store, _gap_engine, _graphrag)
 _agent = ResearchAgent(_store, _gap_engine, _registry, _graphrag)
 _explorer = Explorer(_store, _gap_engine)
+_investigator = ResearchInvestigator(_store, _gap_engine, _graphrag)
 _reports = ReportService(_store, _explorer, _agent)
 _started = time.time()
 
@@ -405,7 +408,7 @@ def graph_expand(request: ExpandRequest) -> dict[str, Any]:
 def graph_path(
     source: str = Query(min_length=2),
     target: str = Query(min_length=2),
-    max_hops: int = Query(default=4, ge=1, le=6),
+    max_hops: int = Query(default=4, ge=1, le=4),
 ) -> dict[str, Any]:
     path = _graphrag.paths_between(source, target, max_hops=max_hops)
     if path is None:
@@ -546,6 +549,28 @@ def gap_evidence(index: int, request: GapRequest) -> dict[str, Any]:
         "score_formula": payload.get("score_formula"),
         "safety_notice": payload.get("safety_notice"),
     }
+
+
+# -------------------------------------------------------- primary investigator
+@router.post(
+    "/investigate",
+    tags=["intelligence"],
+    summary="Question-to-evidence investigation with graph paths and a testable experiment",
+)
+def investigate(request: InvestigationRequest) -> dict[str, Any]:
+    payload = _investigator.investigate(
+        request.question,
+        scope_topic=request.scope_topic,
+        year_min=request.year_min,
+        year_max=request.year_max,
+        field=request.field,
+        top_k=request.top_k,
+        retrieval_top_k=request.retrieval_top_k,
+        depth=request.depth,
+    )
+    payload["generated_at"] = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
+    payload["status"] = _status()
+    return payload
 
 
 # ------------------------------------------------------------------- agent
