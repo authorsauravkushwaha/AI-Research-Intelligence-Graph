@@ -20,9 +20,17 @@ RETURN DISTINCT p.id AS id, p.title AS title, p.year AS year, p.pagerank AS page
 ORDER BY coalesce(p.pagerank, 0) DESC
 LIMIT $limit;
 
-// Shortest relationship path between two nodes (evidence path for the UI)
+// Bounded evidence path using observed corpus relationships only.
+// The syntax-level expansion ceiling is fixed at four; $max_hops applies the caller's
+// smaller bound. IDs and the requested bound are parameters, never query text.
 MATCH (a {id: $source_id}), (b {id: $target_id})
-MATCH path = shortestPath((a)-[*..$max_hops]-(b))
-RETURN [n IN nodes(path) | coalesce(n.title, n.name)] AS nodes,
-       [r IN relationships(path) | type(r)] AS rels,
-       length(path) AS hops;
+MATCH path = shortestPath((a)-[rels:STUDIES|USES_METHOD|USES_DATASET|CITES|AUTHORED|MAKES_CLAIM|AFFILIATED_WITH*1..4]-(b))
+WHERE length(path) <= $max_hops
+  AND all(rel IN rels WHERE type(rel) IN $allowed_types
+          AND coalesce(rel.predicted, false) = false)
+RETURN [n IN nodes(path) | {id: n.id, type: head(labels(n)),
+                            label: coalesce(n.title, n.name, n.id)}] AS path_nodes,
+       [r IN relationships(path) | {source: startNode(r).id, target: endNode(r).id,
+                                    type: type(r), properties: properties(r)}] AS path_edges,
+       length(path) AS hops
+LIMIT 1;

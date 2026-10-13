@@ -76,6 +76,7 @@ def build_store(force_memory: bool = False) -> StoreState:
         return StoreState(store=store, backend=store.engine_name,
                           requested_backend="in-process", reason=reason)
 
+    store = None
     try:
         from backend.graph.neo4j_store import Neo4jGraphStore
 
@@ -85,6 +86,11 @@ def build_store(force_memory: bool = False) -> StoreState:
     except ImportError as exc:
         reason = f"neo4j driver not installed ({exc})"
     except Exception as exc:  # noqa: BLE001 - connectivity/permission problems degrade, not crash
+        if store is not None:
+            try:
+                store.close()
+            except Exception:  # noqa: BLE001 - preserve the original startup failure
+                log.debug("failed to close Neo4j driver after startup error", exc_info=True)
         reason = f"Neo4j unavailable: {exc}"
 
     log.warning("%s — falling back to the in-process engine", reason)

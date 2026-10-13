@@ -29,6 +29,7 @@ RECORDED (engine output that cannot be recomputed in a browser):
   report--<topic>.json/.md        the opportunity report, both renderings
   agent--<question>.json          the research agent's answer *with its explainability block*
   agent-stream--<question>.txt    the recorded SSE stage trace the UI replays
+  investigation--<id>.json        response for one exact, precomputed question/scope pair
   explorer--<scope>.json          analytics for the demo scopes
   timeline--<topic>.json          per-topic publishing timelines
   export-cypher.txt               the Cypher that recreates this graph in Neo4j
@@ -85,6 +86,29 @@ DEMO_QUESTIONS = [
     # GraphRAG follow-ups (multi-hop: the reason vector search alone is not enough)
     "What connects Multi-Agent Systems and Evaluation?",
     "Which topics does ReAct connect?",
+]
+
+# Exact question/scope pairs served by the static Investigator. The published build
+# rejects other pairs rather than substituting a superficially similar answer.
+DEMO_INVESTIGATIONS = [
+    {
+        "id": "memory-coordination",
+        "question": "How can agent memory improve coordination in multi-agent systems?",
+        "scope_topic": "AI Agents",
+        "file": "investigation--memory-coordination.json",
+    },
+    {
+        "id": "planning-api-tools",
+        "question": "Which planning strategies could improve API tool use in AI agents?",
+        "scope_topic": "Tool Use",
+        "file": "investigation--planning-api-tools.json",
+    },
+    {
+        "id": "rag-factuality",
+        "question": "How might graph retrieval support factual reliability in retrieval-augmented generation?",
+        "scope_topic": "Retrieval-Augmented Generation",
+        "file": "investigation--rag-factuality.json",
+    },
 ]
 
 # DSL queries whose real plan is recorded next to the page, so the browser planner
@@ -327,7 +351,15 @@ BANNER = """
 """
 
 
-def patch_index(html: str, *, version: str, built: str, topics: list[str], questions: list[str]) -> str:
+def patch_index(
+    html: str,
+    *,
+    version: str,
+    built: str,
+    topics: list[str],
+    questions: list[str],
+    investigations: list[dict[str, str]],
+) -> str:
     """Rewrite the served index.html for a static, sub-path-safe deployment."""
     # GitHub Pages serves the project under /<repo>/ — every path must be relative.
     html = html.replace('href="/assets/', 'href="assets/')
@@ -362,9 +394,10 @@ def patch_index(html: str, *, version: str, built: str, topics: list[str], quest
     boot = (
         '  <script id="nexus-snapshot" type="application/json">'
         + json.dumps({"mode": "static", "version": version, "built": built,
-                      "topics": topics, "questions": questions,
+                      "topics": topics, "questions": questions, "investigations": investigations,
                       "note": "Recorded from the live application at build time; the graph, "
-                              "papers, search and planner are recomputed in the browser."})
+                              "papers, search and planner are recomputed in the browser. Investigator "
+                              "answers are available only for the exact recorded question/scope pairs."})
         + "</script>\n"
     )
     html = html.replace('<script type="module" src="assets/app.js"></script>',
@@ -537,6 +570,21 @@ def main(argv: list[str] | None = None) -> int:
         rec.json(f"plan--{slug(query)}.json", api_post("/api/plan", {"query": query}),
                  "reference", f"POST /api/plan {{query:{query!r}}}")
 
+    for investigation in DEMO_INVESTIGATIONS:
+        request = {
+            "question": investigation["question"],
+            "scope_topic": investigation["scope_topic"],
+            "top_k": 5,
+            "retrieval_top_k": 24,
+            "depth": 2,
+        }
+        rec.json(
+            investigation["file"],
+            api_post("/api/investigate", request),
+            "recorded",
+            f"POST /api/investigate {{question:{investigation['question']!r}, scope:{investigation['scope_topic']!r}}}",
+        )
+
     rec.text("export-cypher.txt", api_text("/api/export/cypher", limit=300),
              "recorded", "GET /api/export/cypher?limit=300")
 
@@ -562,7 +610,7 @@ def main(argv: list[str] | None = None) -> int:
     built = started.strftime("%Y-%m-%d %H:%M UTC")
     version = started.strftime("%Y%m%d%H%M%S")
     html = patch_index((FRONTEND / "index.html").read_text(), version=version, built=built,
-                       topics=DEMO_TOPICS, questions=DEMO_QUESTIONS)
+                       topics=DEMO_TOPICS, questions=DEMO_QUESTIONS, investigations=DEMO_INVESTIGATIONS)
     (out / "index.html").write_text(html)
 
     shell = [
@@ -587,8 +635,9 @@ def main(argv: list[str] | None = None) -> int:
             "topics": DEMO_TOPICS,
             "questions": DEMO_QUESTIONS,
             "plan_queries": PLAN_QUERIES,
-            "note": "Scopes outside this list return a documented empty state naming the "
-                    "command that answers them live — the snapshot never invents a score.",
+            "investigations": DEMO_INVESTIGATIONS,
+            "note": "Investigator responses are recorded only for the exact question/scope pairs above. "
+                    "Other questions return an explicit unsupported state in this static build; run locally for live analysis.",
         },
         "computed_in_browser": [
             "/api/graph", "/api/graph/expand", "/api/graph/neighbours", "/api/graph/path",

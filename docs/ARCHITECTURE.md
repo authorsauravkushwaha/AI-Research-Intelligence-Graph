@@ -14,9 +14,9 @@ HTTP / UI  →  intelligence  →  tools  →  query interface  →  store + alg
 
 | Layer | Code | Responsibility |
 | --- | --- | --- |
-| Presentation | `frontend/` | 7 views, vanilla ES modules + vendored three.js; no build step, no CDN |
+| Presentation | `frontend/` | 8 views, vanilla ES modules + vendored three.js; no build step, no CDN |
 | API | `backend/api/` | 30+ endpoints, validation, rate limiting, CORS, static hosting |
-| Intelligence | `backend/engine/`, `backend/agents/`, `backend/rag/`, `backend/services/` | Gap scoring, agent loop, GraphRAG retrieval, reports/exports |
+| Intelligence | `backend/engine/`, `backend/agents/`, `backend/rag/`, `backend/services/` | Question-to-evidence Investigator, gap scoring, agent loop, GraphRAG retrieval, reports/exports |
 | Tools | `backend/agents/tools.py` | 13 research tools — one implementation, three consumers (API, agent, MCP) |
 | Query interface | `backend/graph/factory.py`, `backend/store/memory_store.py`, `backend/graph/neo4j_store.py` | One interface, two interchangeable engines |
 | Planner | `backend/services/planner.py` + `polyglot/kotlin/` | NEXUS DSL → parameterised Cypher; the Kotlin sidecar is the reference, the Python port is the fallback, and both are pinned to `tests/data/planner_parity.json` |
@@ -39,25 +39,30 @@ NEO4J_URI + NEO4J_PASSWORD set and reachable?
   └── no  → MemoryGraphStore  (embedded; same schema, same methods, zero infra)
 ```
 
-Both implement the same surface — `list_nodes`, `node`, `node_detail`, `search`,
-`neighbours`, `subgraph`, `expand`, `path`, `stats`, `top`, `communities`,
-`conflicts`, `predicted_links`, `documents`, `engine_status`. The rest of the system
-cannot tell them apart, which is why the demo survives a missing database and why
-judges can run the Neo4j path without touching a line of application code.
+`Neo4jGraphStore` subclasses the in-process store, preserving the public API while
+changing connectivity, schema creation, idempotent import, hydration, optional GDS
+analytics, and bounded evidence-path traversal. Most scope selection, GraphRAG retrieval,
+search, and GapEngine calculations run on the hydrated local working projection—even when
+Neo4j is the selected backend. The Investigator calls Neo4j for its reported paths rather
+than describing a local path as a database result. Do not assume every endpoint is a remote
+Cypher query.
 
 **Degradation is explicit, never silent.** The factory records *why* it fell back and
-`/api/health` surfaces `store.backend`, `store.degraded`, `store.reason` and
-`store.warnings`; the UI shows the same badge. A fallback that hides itself would be a
-lie about what the demo is proving.
+`/api/health` surfaces `store.backend`, `store.degraded`, `store.reason`, schema/connection
+warnings and, for Neo4j, the projection note. The UI shows the active graph backend. A
+fallback that hides itself would be a lie about what the demo is proving.
 
 ### Neo4j path (`backend/graph/neo4j_store.py`)
 
-Loader → constraints + full-text index → node/edge hydration → GDS projection
-(`gds.graph.project` / `gds.pageRank.stream` / `gds.louvain.stream` /
-`gds.betweenness.stream`) → metric write-back → `PREDICTED_LINK` materialisation. If GDS
-is absent, the same kernels run through the C++ binary or Python; the engine per metric
-is reported in `/api/algorithms`. All Cypher lives in `cypher/queries/*.cypher` and every
-value is a bound parameter — there is no string-concatenated query in the code base.
+Loader → uniqueness constraints/full-text index → parameterized `UNWIND`/`MERGE` import
+→ node/edge hydration into a local projection → optional GDS projection and analytics
+when enabled/available → metric write-back and derived edges. Otherwise the configured
+native/Python analytics run over that local projection; `/api/algorithms` reports engine
+labels. The Investigator uses a separate bounded Neo4j shortest-path query for reported
+evidence paths. Data values and IDs are bound parameters. The relationship-type pattern is
+fixed to the observed-path whitelist, and the traversal's hard upper bound is four hops;
+the caller's smaller hop limit is a bound parameter. `cypher/queries/02_papers.cypher`
+keeps a reviewable query example consistent with the runtime implementation.
 
 ---
 
@@ -67,7 +72,7 @@ value is a bound parameter — there is no string-concatenated query in the code
 job on stdin. Benefits:
 
 - **Crash isolation** — a bad graph cannot take the API process down.
-- **Honest performance** — PageRank over 20k nodes/120k edges in ~104 ms.
+- **Measured performance stays reproducible** — run `native/test/bench.sh` on the target machine; synthetic benchmark timings are not treated as portable guarantees.
 - **Interchangeable implementations** — GDS when present, C++ otherwise, pure Python last.
 
 Each wrapper returns `(result, engine)` so the caller records *which* implementation
@@ -93,7 +98,28 @@ features (30/25/20/15/10 — see [METHODOLOGY.md](METHODOLOGY.md)). Design const
 
 ---
 
-## 5. Agent and GraphRAG
+## 5. Question-to-evidence Investigator
+
+`backend/engine/investigator.py` composes the existing `GraphRAG`, `GapEngine`, and graph
+store rather than adding a second retrieval or graph stack. GraphRAG provides a named
+recall-oriented retrieval context; the Investigator independently ranks in-scope paper
+records using disclosed title/summary/taxonomy token overlap. It filters candidate pairs
+against concept-label support, preserving the published opportunity score and publishing
+question relevance separately. Evidence links point to corpus source records, while graph
+paths use only observed relationships and include direction/provenance. Claim tensions are
+presented as automated review hypotheses, not facts.
+
+When Neo4j is active, question scope, retrieval, ranking, and analytics use the Neo4j-hydrated
+local projection. Investigator paths are separately verified with a bounded, time-limited,
+parameterized Neo4j traversal; memory mode uses bounded BFS. Each candidate's proposed
+experiment identifies an intervention, baseline to select from full-text review, primary
+outcome, controls, and a falsification criterion. It does not state measured outcomes or
+validate novelty. The static website stores only three exact question/scope responses and
+returns HTTP 501 for other pairs or filtered requests.
+
+---
+
+## 6. Agent and GraphRAG
 
 `backend/agents/agent.py` runs a small, auditable loop: intent → plan → tools →
 retrieval → synthesis → explanation. With an LLM key it asks the model to plan a tool
@@ -109,7 +135,7 @@ anchored to nodes that exist. See [GRAPHRAG.md](GRAPHRAG.md).
 
 ---
 
-## 6. Front end
+## 7. Front end
 
 A single HTML file, one stylesheet, one ES module and a vendored three.js r160. No
 framework, no bundler, no CDN — the UI works offline, which matters for a demo on
@@ -118,7 +144,7 @@ evidence paths, and colour-codes by node type/community/metric.
 
 ---
 
-## 7. Query planning: two implementations, one contract
+## 8. Query planning: two implementations, one contract
 
 The graph views need *parameterised* Cypher for a small, closed DSL
 (`topic:"…" type in (Paper, Method) rel in (CITES) depth<=2 year>=2022 limit 60`).
@@ -144,11 +170,13 @@ in `params.q`, where the full-text index tokenises it.
 
 ---
 
-## 8. Security and safety
+## 9. Security and safety
 
 - Secrets only via environment variables; `.env` git-ignored; the API exposes **capability
   booleans**, never keys.
-- Parameterised Cypher throughout; no `f"MATCH … {user_input}"` anywhere.
+- Data values are bound parameters; schema labels and relationship types come from
+  fixed/allow-listed code. The evidence-path relationship pattern has a static four-hop
+  syntax ceiling and a caller hop limit supplied as a bound parameter.
 - Input validation at the boundary (pydantic) plus hard server-side bounds on payload size
   and traversal depth.
 - Rate limiting and CORS allow-listing on by default.
@@ -158,7 +186,7 @@ in `params.q`, where the full-text index tokenises it.
 
 ---
 
-## 9. Why this survives a demo
+## 10. Why this survives a demo
 
 | Failure | Behaviour |
 | --- | --- |

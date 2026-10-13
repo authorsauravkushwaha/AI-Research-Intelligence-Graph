@@ -128,10 +128,12 @@ result is published on a 0–100 scale. `POST /api/gaps` returns the raw values
    validation study. The score ranks candidates within one scope; it is not comparable
    across scopes and is not a probability.
 2. **Corpus-bounded.** A "gap" means *relatively under-explored in the analyzed corpus* —
-   never "nobody has researched this". The demo corpus is 198 papers; real literature is
-   far larger, and absence of evidence here is not evidence of absence.
-3. **Score compression.** Demo scopes produce scores in a narrow band (≈ 73–89). Read
-   components and ranks, not the digits.
+   never "nobody has researched this". The current curated demo corpus has 204 paper
+   records; real literature is far larger, and absence of evidence here is not evidence of
+   absence.
+3. **Uncalibrated score.** Read the component values and within-scope ranks as heuristic
+   prioritization signals, not probabilities, cross-scope effect measures, or scientific
+   value. No expert-labelled validation set is currently documented.
 4. **Lexical-baseline embeddings** by default: semantic similarity is a bag-of-words
    proxy unless `NEXUS_EMBEDDINGS_URL` is configured. It is labelled
    `embedding_engine: local:lexical-baseline` in every response.
@@ -149,7 +151,7 @@ result is published on a 0–100 scale. `POST /api/gaps` returns the raw values
 
 ```bash
 python scripts/build_corpus.py --check          # corpus integrity
-python -m pytest -q                             # 48 tests, algorithms included
+python -m pytest -q                             # run the current offline test suite
 python run.py & ./scripts/smoke.sh              # live API sweep
 ```
 

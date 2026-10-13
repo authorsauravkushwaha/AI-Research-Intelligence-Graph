@@ -78,6 +78,7 @@ class Neo4jConfig:
     database: str = field(default_factory=lambda: os.getenv("NEO4J_DATABASE", "neo4j").strip())
     enabled: bool = field(default_factory=lambda: _bool("NEXUS_ENABLE_NEO4J", True))
     timeout: float = field(default_factory=lambda: _float("NEO4J_TIMEOUT_SECONDS", 4.0))
+    query_timeout: float = field(default_factory=lambda: _float("NEO4J_QUERY_TIMEOUT_SECONDS", 30.0))
     # Graph Data Science is optional: the engine writes GDS projections when the
     # plugin exists and always keeps its own C++ kernel results as the fallback.
     use_gds: bool = field(default_factory=lambda: _bool("NEXUS_USE_GDS", True))

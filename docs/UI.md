@@ -1,6 +1,6 @@
-# UI guide — the seven views
+# UI guide — the eight views
 
-A single page, seven views, no framework, no build step, no CDN: `frontend/index.html`
+A single page, eight views, no framework, no build step, no CDN: `frontend/index.html`
 plus `frontend/assets/app.js` (ES module) and `frontend/assets/style.css`, with three.js
 r160 vendored in `frontend/vendor/`. The whole front end is served by the same process as
 the API, so the demo needs one command and zero network access.
@@ -24,14 +24,36 @@ the API, so the demo needs one command and zero network access.
   claim resolver): live, offline, or not configured, the engine that answers, and the
   Python fallback that takes over. Nothing here is required for the demo.
 
-## 2 · Research Explorer
+## 2 · Investigator
+
+The question form accepts a required research question, an optional topic (otherwise
+inferred only when a corpus-topic match is clear), and optional year/field filters. Example
+buttons link to the three static-site snapshots. Submission shows loading and readable error
+states; static mode refuses unsupported question/scope pairs rather than returning a nearby
+answer.
+
+The result displays the selected-scope resolver and coverage, actual GraphRAG retrieval
+engine, graph-store backend, independently reranked source papers with arXiv links, and
+separately ranked opportunity candidates. Candidate cards expose unchanged prototype-score
+components, the separate question-relevance signal, source-paper roles, observed path hops
+with direction/provenance, detected claim-tension leads, and explicit caveats. “Trace these
+nodes in the graph” seeds the interactive graph from the selected path. Each experiment
+proposal includes an intervention, baseline selection rule, predeclared primary outcome,
+controls, and a falsification criterion; unknown study details are left for source review.
+
+When Neo4j is active, the screen states that scope/ranking/analytics use a Neo4j-hydrated
+local projection and reported paths are checked with bounded Neo4j Cypher. In-process mode
+uses bounded BFS. Neither missing edges nor absent automated tensions prove novelty or
+consensus.
+
+## 3 · Research Explorer
 
 Field-level analytics for a chosen scope (topic / year range / field): publishing pulse,
 topic, method and dataset adoption, community structure, and top bridge entities.
 Every panel states the resolution and method that produced it, so a number can be traced
 back to a query.
 
-## 3 · Knowledge Graph
+## 4 · Knowledge Graph
 
 The 3D view (three.js + OrbitControls). Deliberately bounded:
 
@@ -43,7 +65,7 @@ The 3D view (three.js + OrbitControls). Deliberately bounded:
 | Max nodes / depth | enforced server-side too (`max_nodes ≤ 400`, `depth ≤ 3`) |
 | Click a node | detail panel: props, provenance, metric explanations, neighbours |
 | **Expand** | one hop from the selected node (`/api/graph/expand`) — the graph grows on demand, never loaded whole |
-| **Highlight path** | shortest relationship path between two nodes, rendered as an evidence route |
+| **Highlight path** | shortest path over observed corpus relationships, rendered as an evidence route; Neo4j queries are bounded and direct when that backend is active |
 
 Predicted links render as dashed edges with a hypothesis tooltip, so inference is visually
 distinct from fact.
@@ -54,7 +76,7 @@ distinct from fact.
   sidecar when it is up and by the Python port when it is not, with the engine named.
   Language clauses outside the whitelist are refused with the allowed values listed.
 
-## 4 · Research Gap Finder — the killer feature
+## 5 · Research Gap Finder — the killer feature
 
 * **Scope form** — topic, year range, `top_k`, minimum papers per cluster.
 * **Score model panel** — fetched live from `/api/opportunity-score`: the five components,
@@ -69,13 +91,13 @@ distinct from fact.
   pairs the engine excluded and why (nested concepts, entangled clusters, overlapping
   membership). The bar never silently moves.
 
-## 5 · Paper Explorer
+## 6 · Paper Explorer
 
 Paged, filterable list of all papers; opening one shows provenance (`summary_source`,
 `author_status`, arXiv link), metrics with explanations, its neighbourhood by relationship
 type, claims, community membership, detected tensions and predicted links.
 
-## 6 · AI Research Agent
+## 7 · AI Research Agent
 
 * **Question box** with example prompts covering the 13 intents.
 * **Stage trace** — streamed over SSE: `intent → plan → tool (each call) → retrieval →
@@ -86,7 +108,7 @@ type, claims, community membership, detected tensions and predicted links.
   notice.
 * **Follow-up suggestions** generated from the evidence that was retrieved.
 
-## 7 · Research Opportunity Report
+## 8 · Research Opportunity Report
 
 Builds the full brief for a scope and renders it section by section; downloads as Markdown
 (`/api/report/markdown`) and exports the underlying graph as GraphML, CSV, JSON or Cypher
@@ -97,27 +119,26 @@ provenance block, so a shared report cannot be read out of context.
 
 ## The published snapshot of these views
 
-The same seven views are published at
+The same eight views are published at
 <https://authorsauravkushwaha.github.io/AI-Research-Intelligence-Graph/> and install as an app
-(`manifest.webmanifest` + service worker, so it opens offline). Nothing in the layout changes —
-only where the numbers come from:
+(`manifest.webmanifest` + service worker, so it opens offline). The provenance differs by
+view:
 
-* **computed in the browser** on every interaction: the graph subgraph, expand-on-demand,
-  neighbours, shortest paths, paper and node detail, search, the paper list, the timeline and
-  the explorer. `frontend/assets/site.js` implements those endpoints over `data/graph.json`,
-  and `scripts/check_site_data.mjs` replays every answer the engines recorded for the same
-  scopes through the shipped file and diffs them field by field — 60 checks over 20 581 values,
-  gated in CI before the deploy;
-* **replayed from build-time engine output**: gap scopes and scores, opportunity reports and
-  agent answers. Their panels show a `static snapshot` chip, and the payload carries
-  `static_snapshot.mode: "recorded"` plus the note that the numbers were computed at build
-  time by the same engines;
-* **an honest empty state**: a topic that was not precomputed (type any topic in the Gap
-  Finder) returns the reason, the list of precomputed scopes, and the command to run the app
-  locally — never an invented score.
+* **computed in the browser** on every interaction: graph subgraph, expand, neighbours,
+  graph paths, paper/node detail, search, paper list, timeline, explorer and query planning,
+  all over the shipped snapshot. The planner generates a plan but does not execute Cypher.
+  `scripts/check_site_data.mjs` compares the shipped browser mirror against recorded API
+  responses; current check counts are generated at build time, not promised in this guide;
+* **replayed from build-time engine output**: gap scopes, reports, agent answers, and the
+  three exact Investigator question/scope pairs. The Investigator response explicitly notes
+  it is a precomputed snapshot; no browser retrieval or graph traversal occurs for that
+  request;
+* **explicit unsupported state**: other Investigator question/scope pairs or filtered
+  requests return HTTP 501 with the supported pairs and a local-run hint. Unrecorded gap or
+  report scopes are also rejected rather than answered with an unrelated result.
 
-The 3D graph, the evidence highlight, the planner card and all safety language are identical
-to the local experience.
+The graph experience remains interactive, but the static site cannot query Neo4j or compute a
+new investigation. Use the local FastAPI app for live question answering and paths.
 
 ---
 

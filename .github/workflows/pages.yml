@@ -19,7 +19,7 @@ on:
   # front end, the builder or the checker is verified by the same pipeline that publishes it
   # before it is merged — same artefact either way, newest push wins.
   push:
-    branches: ["main", "arena/a214f69c-ai-research-intelligence-graph"]
+    branches: ["main", "arena/2667a5f6-ai-research-intelligence-graph"]
   workflow_dispatch:
 
 permissions:

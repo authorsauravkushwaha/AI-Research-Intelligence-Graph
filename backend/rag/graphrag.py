@@ -297,33 +297,46 @@ class GraphRAG:
         return visited
 
     def paths_between(self, a: str, b: str, max_hops: int = 4) -> dict[str, Any] | None:
-        """Shortest relationship path (evidence path for the UI highlight)."""
-        from backend.algorithms import kernel
+        """Find a bounded evidence path over observed corpus relationships.
 
-        ids, proj = self.store.projection()
-        path = kernel.shortest_path(ids, proj, a, b)
-        if not path or len(path) > max_hops + 1:
+        The store chooses the backend: MemoryGraphStore uses bounded BFS, while an
+        active Neo4j store executes its parameterized shortest-path query against the
+        database. Neither path type treats predicted or similarity links as evidence.
+        """
+        trace = getattr(self.store, "trace_path", None)
+        if not callable(trace):
             return None
+        raw = trace(
+            a,
+            b,
+            max_hops=max(1, min(int(max_hops), 4)),
+            allowed_types=(
+                "STUDIES", "USES_METHOD", "USES_DATASET", "CITES", "AUTHORED",
+                "MAKES_CLAIM", "AFFILIATED_WITH",
+            ),
+        )
+        if not raw:
+            return None
+        node_labels = raw.get("nodes") or []
+        if not node_labels or len(raw.get("hops") or []) + 1 != len(node_labels):
+            return None
+        by_id = {node["id"]: node for node in node_labels}
         hops = []
-        for src, dst in zip(path, path[1:]):
-            rel = "RELATED"
-            for edge in self.store.edges:
-                if (edge.src == src and edge.dst == dst) or (edge.dst == src and edge.src == dst):
-                    rel = edge.type
-                    break
-            hops.append(
-                {
-                    "from": src,
-                    "to": dst,
-                    "label": f"{self.store.nodes[src].name} —{rel}→ {self.store.nodes[dst].name}",
-                    "type": rel,
-                }
-            )
+        for hop in raw.get("hops", []):
+            source = by_id.get(hop.get("from"), {})
+            target = by_id.get(hop.get("to"), {})
+            relationship = hop.get("type") or "relationship"
+            hops.append({
+                **hop,
+                "label": f"{source.get('label', hop.get('from'))} —{relationship}→ {target.get('label', hop.get('to'))}",
+            })
         return {
-            "nodes": path,
+            "nodes": [node["id"] for node in node_labels],
             "hops": hops,
             "hops_count": len(hops),
-            "node_labels": [{"id": n, "type": self.store.nodes[n].label, "label": self.store.nodes[n].name} for n in path],
+            "node_labels": node_labels,
+            "source_engine": raw.get("source_engine", getattr(self.store, "engine_name", "unknown")),
+            "method": raw.get("method", "bounded store evidence-path traversal"),
         }
 
     # ------------------------------------------------------------ retrieve

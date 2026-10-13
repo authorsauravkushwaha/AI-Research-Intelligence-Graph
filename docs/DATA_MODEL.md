@@ -89,12 +89,17 @@ can render trust information next to the picture.
 CREATE CONSTRAINT paper_id IF NOT EXISTS FOR (p:Paper)  REQUIRE p.id IS UNIQUE;
 CREATE CONSTRAINT topic_id IF NOT EXISTS FOR (t:Topic)  REQUIRE t.id IS UNIQUE;
 -- … one uniqueness constraint per label …
-CREATE FULLTEXT INDEX nexus_search IF NOT EXISTS
-FOR (n:Paper|Topic|Method|Dataset|Author) ON EACH [n.label, n.name, n.summary];
+CREATE FULLTEXT INDEX nexus_fulltext IF NOT EXISTS
+FOR (n:Paper|Topic|Method|Dataset|Claim) ON EACH [n.name, n.title, n.abstract, n.text];
 ```
 
-The full-text index backs `/api/search` on the Neo4j engine and the local lexical scan
-backs it on the embedded engine, so search behaves the same either way.
+The name, labels, and indexed properties above match `Neo4jGraphStore.ensure_schema()`;
+`cypher/queries/02_papers.cypher` uses this index name. `/api/search` currently runs the
+in-process string scan over the hydrated projection for both stores—the index does not
+currently back that endpoint. The Neo4j Investigator imports claim provenance as JSON and
+decodes it into a mapping during hydration, matching the in-process claim shape consumed by
+`.get()` callers. Index creation/permission warnings are surfaced through health rather than
+discarded.
 
 ---
 

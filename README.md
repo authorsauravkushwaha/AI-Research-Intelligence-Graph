@@ -13,7 +13,7 @@ not a chat box — to find **research gaps**, explain **contradictions**, predic
   <img alt="neo4j" src="https://img.shields.io/badge/Neo4j-5.x%20%2B%20GDS-008cc1">
   <img alt="llm" src="https://img.shields.io/badge/LLM-optional%20(offline%20fallback)-green">
   <img alt="frontend" src="https://img.shields.io/badge/3D-three.js%20r160%20(vendored)-000000">
-  <img alt="tests" src="https://img.shields.io/badge/tests-76%20passing-brightgreen">
+  <img alt="tests" src="https://img.shields.io/badge/tests-94%20passing-brightgreen">
   <img alt="website" src="https://img.shields.io/badge/site-live%20on%20GitHub%20Pages-2ea44f">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -25,7 +25,8 @@ not a chat box — to find **research gaps**, explain **contradictions**, predic
 - [What it does](#what-it-does)
 - [Quickstart](#quickstart)
 - [Website & app (published)](#website--app-published)
-- [The seven views](#the-seven-views)
+- [The eight views](#the-eight-views)
+- [Question-to-evidence Investigator](#question-to-evidence-investigator)
 - [Killer feature — FIND RESEARCH GAPS](#killer-feature--find-research-gaps)
 - [Architecture](#architecture)
 - [The polyglot split](#the-polyglot-split)
@@ -68,26 +69,55 @@ system still answers — from graph structure, with deterministic templates.
 
 ## Quickstart
 
+Run commands **from the repository root** — the folder containing both `run.py` and
+`backend/`. If `backend/requirements.txt` or `run.py` cannot be found, check `pwd` and
+change into your clone first. In Git Bash, `/` is the Git installation directory, not the
+NEXUS repository; create `.venv` only after entering the clone.
+
+### macOS / Linux
+
 ```bash
 git clone https://github.com/authorsauravkushwaha/AI-Research-Intelligence-Graph
 cd AI-Research-Intelligence-Graph
-
-python3 -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r backend/requirements.txt
-
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r backend/requirements.txt
+python run.py --check
 python run.py                 # → http://localhost:8000
 ```
 
+### Windows with Git Bash
+
+If you have not cloned the project yet:
+
+```bash
+cd /c/Users/SAURAV
+git clone https://github.com/authorsauravkushwaha/AI-Research-Intelligence-Graph
+cd AI-Research-Intelligence-Graph
+```
+
+If it is already cloned elsewhere, skip `git clone` and `cd` to that existing folder instead.
+Then, from the folder containing `run.py` and `backend/`, run:
+
+```bash
+python -m venv .venv
+source .venv/Scripts/activate
+python -m pip install -r backend/requirements.txt
+python run.py --check
+python run.py                 # → http://localhost:8000
+```
+
+Use plain shell commands such as `python run.py --check`; do not include Markdown link
+syntax like `[run.py](...)`. The activation command above is for Git Bash; PowerShell and
+Command Prompt use their respective Windows activation scripts.
+
 That is the whole setup. **No Neo4j, no API key, no Docker, no network.** The launcher
-checks the environment first (`python run.py --check`) and reports exactly what is
-available:
+reports the active backend and capabilities:
 
 ```
-  · neo4j: not configured (in-process engine)
-  · llm: not configured (graph-template answers)
-  · embeddings: local lexical baseline
-  · native kernel: nexus-native/1.0.0 (C++, zero deps)
-  · corpus: 204 papers · 713 nodes · 2,963 edges
+NEXUS — AI Research Intelligence Graph
+  · neo4j: not configured (in-process engine) · llm: not configured (graph-template answers) · embeddings: local lexical baseline
+  ✓ installation looks good
 ```
 
 Three optional upgrades, each independent:
@@ -103,7 +133,7 @@ docker compose up                # Neo4j 5 + GDS + APOC + the API container
 ## Website & app (published)
 
 **Live site: <https://authorsauravkushwaha.github.io/AI-Research-Intelligence-Graph/>** —
-the same seven views, no backend, installable on a phone or a desktop.
+the eight-view static snapshot, with no backend and an installable phone/desktop shell.
 
 GitHub Pages cannot run FastAPI, so the website is not a mock-up of NEXUS: it is NEXUS,
 computed ahead of time. `scripts/build_site.py` drives the **real** application in-process —
@@ -111,7 +141,7 @@ the same store, analytics, gap engine, GraphRAG pipeline, planner and agent the 
 and records their answers as JSON next to a snapshot of the graph:
 
 ```
-scripts/build_site.py ──► TestClient(create_app()) ──► data/graph.json (713 nodes / 2,963 edges)
+scripts/build_site.py ──► TestClient(create_app()) ──► data/graph.json (712 nodes / 2,981 edges)
                                                      data/index.json (counts, references, questions)
                                                      data/scope--*.json   (gap-engine resolutions)
                                                      data/gaps--*.json    (scored opportunities)
@@ -128,8 +158,9 @@ scopes, agent answers and reports are build-time engine output, and the site say
 | --- | --- | --- |
 | knowledge graph, expand, neighbours, shortest paths | browser-side BFS over `graph.json` | `static_snapshot.backend: "static-snapshot"` |
 | paper/node detail, search, listings, timeline, explorer | browser-side engine mirror | same numbers as the API (verified below) |
-| FIND RESEARCH GAPS, opportunity report, agent answers | the real engines at build time | `static_snapshot.mode: "recorded"` |
-| any scope that was not precomputed | documented empty state + reason + local command | never a fabricated score |
+| FIND RESEARCH GAPS, opportunity reports, agent answers | the real engines at build time | `static_snapshot.mode: "recorded"` |
+| Investigator | three exact question/scope pairs generated by the live API at build time | `static_snapshot.mode: "recorded"`; other pairs return HTTP 501 |
+| any other scope/question | clear unsupported response plus local-run hint | no nearest-match substitution and no fabricated result |
 
 It is a real app, not a page: `manifest.webmanifest` plus a service worker precise the shell and
 the demo scopes, so it **installs** (`Add to Home Screen` / the install button in the header) and
@@ -138,7 +169,7 @@ the demo scopes, so it **installs** (`Add to Home Screen` / the install button i
 
 ```bash
 pip install -r backend/requirements.txt -r scripts/requirements-site.txt
-python scripts/build_site.py --out site            # ~2 min, writes ./site (6.7 MB, 149 files)
+python scripts/build_site.py --out site            # writes generated snapshot to ./site
 python -m http.server 8080 --directory site        # http://localhost:8080
 ```
 
@@ -157,39 +188,81 @@ NEXUS static snapshot check — /home/user/AI-Research-Intelligence-Graph/site
   shell        7 pass
   snapshot     6 pass
   boot         2 pass
-  parity       35 pass
+  parity       38 pass
   corpus       2 pass
-  interactive  8 pass
+  interactive  12 pass
 
-60/60 checks passed · 20581 values compared against the engine's own recorded answers
+67/67 checks passed · 22167 values compared against the engine's own recorded answers
 ```
 
 The checker boots the **shipped** `assets/site.js` against the **shipped** snapshot and replays
 every recorded engine answer through it: the default graph view, the timeline and explorer
-overviews for each demo topic, all six planner fixtures, five paper details, five node details
-and four searches — plus the whole 204-row paper list page by page. Only four keys may differ,
-and each is printed: the runtime `status` envelope, the `static_snapshot` note the browser layer
-adds, and the `engine`/`source` of the plan payload (the browser plans with the JS port of the
-Kotlin/Python planner, so it says so). Numeric differences caused by re-rounding an
-already-rounded float are counted and reported; anything else fails the build
-(38 comparisons). Shortest paths are compared by endpoints, length and edge validity rather
+overviews, all six planner fixtures, three exact Investigator snapshots, five paper details,
+five node details and four searches — plus the whole 204-row paper list page by page. The
+checker permits only the expected runtime `status` envelope, the browser-added
+`static_snapshot` note, and the JS planner's `engine`/`source` values; numeric differences
+caused by re-rounding an already-rounded float are counted and reported. Other differences
+fail the build. Shortest paths are compared by endpoints, length and edge validity rather
 than by a particular tie-break, because more than one shortest chain usually exists.
 
 `site/` is generated and not committed; the workflow rebuilds it on every push to `main`.
 The static layer is a snapshot of the curated demo corpus — it answers questions about those
 204 papers, and it says so instead of guessing.
 
-## The seven views
+## The eight views
 
 | # | View | What it shows |
 | --- | --- | --- |
 | 1 | **Home** | Corpus health, engine status, community map, activity timeline, top entities |
-| 2 | **Research Explorer** | Field-level metrics: publishing pulse, method/dataset adoption, community structure |
-| 3 | **Knowledge Graph** | Interactive **3D** graph — node types, communities, metrics, expand-on-demand, evidence highlighting |
-| 4 | **Research Gap Finder** | **The killer feature.** Ranked opportunity candidates with a decomposed score |
-| 5 | **Paper Explorer** | Every paper with its neighbourhood, claims, metrics and provenance |
-| 6 | **AI Research Agent** | GraphRAG question answering with visible tool calls and a stage-by-stage trace |
-| 7 | **Research Opportunity Report** | A complete, exportable brief: scope, gaps, evidence, contradictions, next steps |
+| 2 | **Investigator** | Research question → scoped paper retrieval/reranking → candidate opportunities → source evidence, observed graph paths, caveats, and falsifiable experiment proposal |
+| 3 | **Research Explorer** | Field-level metrics: publishing pulse, method/dataset adoption, community structure |
+| 4 | **Knowledge Graph** | Interactive **3D** graph — node types, communities, metrics, expand-on-demand, evidence highlighting |
+| 5 | **Research Gap Finder** | Ranked candidate opportunities with a decomposed prototype-heuristic score |
+| 6 | **Paper Explorer** | Every paper with its neighbourhood, claims, metrics and provenance |
+| 7 | **AI Research Agent** | GraphRAG question answering with visible tool calls and a stage-by-stage trace |
+| 8 | **Research Opportunity Report** | Exportable brief: scope, candidates, evidence, contradictions, next steps |
+
+---
+
+## Question-to-evidence Investigator
+
+The Investigator is the end-to-end workflow for a research question. It extends the existing
+FastAPI, GraphRAG, GapEngine, graph stores, and schema rather than introducing a second
+corpus or graph model.
+
+```bash
+curl -s -X POST http://localhost:8000/api/investigate \
+  -H 'content-type: application/json' \
+  -d '{"question":"How can agent memory improve coordination in multi-agent systems?","scope_topic":"AI Agents"}'
+```
+
+The response reports the selected scope and its resolver matches, corpus coverage, the
+actual GraphRAG retrieval-engine label, graph-store name, and an independent question-term
+ranking of source-linked paper records. GraphRAG context is treated as recall-oriented input,
+not as a final relevance ranking. GapEngine candidate scores remain their published
+prototype heuristic; separate question-relevance evidence filters/ranks candidates without
+rewriting those scores. No candidate is a novelty verdict.
+
+Each surfaced candidate includes its score components, matched question terms, linked
+source papers, observed relationship path(s) with provenance, claim-tension leads and
+counterevidence status, corpus-coverage caveats, and a falsifiable experiment proposal.
+The experiment describes an intervention, a source-literature baseline to select and
+reproduce, a predeclared primary outcome, controls, and a criterion that would fail to
+support the directional hypothesis. Unknown benchmark details are explicitly left for
+full-text review; no outcomes are invented. Missing graph edges or claim tensions do not
+prove prior work or disagreement is absent.
+
+When the configured backend is Neo4j, the scope, GraphRAG, ranking, and analytics run over
+the Neo4j-hydrated local graph projection. Reported Investigator paths are checked with a
+bounded, timed, parameterized Neo4j traversal over observed corpus relationships. The
+in-process mode uses bounded BFS and labels the path source. Neither path treats predicted
+links as evidence. See [docs/API.md](docs/API.md) and
+[docs/AUDIT_AND_IMPLEMENTATION_PLAN.md](docs/AUDIT_AND_IMPLEMENTATION_PLAN.md).
+
+The static site records exactly three unfiltered question/scope runs (the buttons in the
+Investigator form). They are build-time snapshots, not live browser retrievals. Any other
+question/scope pair or filtered request returns an explicit HTTP 501 unsupported response;
+there is no closest-question fallback.
 
 ---
 
@@ -217,12 +290,10 @@ Every candidate returns the formula, the component values, the papers that defin
 cluster, the bridge papers that already exist, contradictions in the area, and a
 trajectory (`persistent gap` / `emerging bridge` / `closing gap`).
 
-> Worked example — `POST /api/gaps {"topic": "AI Agents", "top_k": 5}`: 101 papers in scope,
-> 88 candidate pairs scored, 24 rejected with a printed reason, top candidates
-> *Scientific and Medical Agents × Agent Memory* (84.8), *Agent Memory × Software Agents*
-> (85.4), *Agent Memory × Coordination* (85.2). Narrow the scope to *Tool Use* and the top
-> candidate becomes *Planning × API Calling* (92.4) — the ranking is recomputed from the
-> structure of the scope you asked for, not recited.
+> Reproducible API example — `POST /api/gaps {"topic": "AI Agents", "top_k": 5}`.
+> The response carries the selected-scope counts, candidate pairs, component values, and
+> the reason when no supported pair is available. Use the Investigator for question-specific
+> filtering and paper reranking; neither workflow makes a claim of novelty.
 
 > **This is a prototype heuristic, not a validated measure of scientific value.**
 > The score is a hypothesis generator. It tells you where to *look*, never that
@@ -237,7 +308,7 @@ trajectory (`persistent gap` / `emerging bridge` / `closing gap`).
 ```
                                     ┌──────────────────────────────────────────────┐
                                     │              Browser (no CDN)                │
-                                    │  7 views · vanilla ES modules · three.js 3D  │
+                                    │  8 views · vanilla ES modules · three.js 3D  │
                                     │  frontend/index.html + assets/ + vendor/     │
                                     └───────────────────────┬──────────────────────┘
                                                             │ fetch / EventSource (SSE)
@@ -280,7 +351,7 @@ trajectory (`persistent gap` / `emerging bridge` / `closing gap`).
                                                     └──────────────────┬────────────────┘
              ┌───────────────────────────────────────────────────────┴────────────────┐
              │   Corpus pipeline (§3-§8)   scripts/build_corpus.py → data/demo/       │
-             │   validate arXiv ids · dedupe · label provenance · 198 papers / 78 claims│
+             │   validate arXiv ids · dedupe · label provenance · 204 papers / 51 claims│
              └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -296,7 +367,7 @@ The project uses each language where it genuinely fits — no token gesture port
 | Language | Where | Why this language |
 | --- | --- | --- |
 | **Python 3.11+** | API, GraphRAG, agent, gap engine, ingestion | Fast iteration on the parts that are the product |
-| **C++17** | `native/` graph kernel (`nexus-kernel`) | Real algorithms with zero dependencies, process-isolated, ~100 ms PageRank on 20k nodes |
+| **C++17** | `native/` graph kernel (`nexus-kernel`) | Dependency-light graph algorithms, process-isolated; see `native/test/bench.sh` to run the synthetic benchmark locally |
 | **Cypher** | `cypher/queries/*.cypher`, Neo4j schema | Parameterised, reviewable queries instead of string-built ones |
 | **Kotlin (JVM)** | `polyglot/kotlin/` query planner: NEXUS DSL → parameterised Cypher plan | JVM type safety for a compiler-like component (sealed AST, exhaustive `when`), plus an HTTP fallback traversal engine — runs as the `:8092` sidecar and answers `POST /api/plan` |
 | **Ruby** | `polyglot/ruby/claim_resolver.rb` | Text/DSL-friendly scripting for claim normalisation and opposition scoring |
@@ -434,10 +505,12 @@ The UI shows each stage live, which makes the reasoning auditable rather than ma
 | Connected components, degree | Coverage and isolation checks | C++ kernel | Cheap sanity metrics |
 
 The native kernel is a single static binary with a JSON job protocol
-(`echo '{"job":"pagerank","nodes":[...],"edges":[...]}' | native/build/bin/nexus-kernel`),
-so the heavy analytics never block the API process and can be swapped for GDS when
-Neo4j is present. Measured: PageRank over 20k nodes / 120k edges in **104 ms**, Louvain
-in **896 ms** — see `native/bench`.
+(`echo '{"job":"pagerank","nodes":[...],"edges":[...]}' | native/build/bin/nexus-kernel`).
+Run `native/test/bench.sh` to reproduce a synthetic benchmark on the current machine; its
+timing output is environment-dependent and is not reported here as a portable guarantee.
+When Neo4j/GDS is configured, the store may use GDS for supported metrics; Investigator
+paths use bounded Neo4j traversal, while most Python graph workflows still use the hydrated
+local projection.
 
 ---
 
@@ -460,8 +533,10 @@ These rules are enforced in code, tests and copy — not just in the README:
 - **No secrets in the front end**, no credentials in source. Everything is an env var
   (`.env.example`), `.env` is git-ignored, and the API reports capability flags instead
   of keys.
-- All Neo4j access is parameterised Cypher (`cypher/queries/*.cypher`, bound params in
-  `backend/graph/neo4j_store.py`) — no string-concatenated queries.
+- Neo4j data values and identifiers are bound parameters. Structural syntax comes from
+  fixed/allow-listed labels and relationships; the bounded path pattern has a static
+  four-hop ceiling and a bound caller limit. See `backend/graph/neo4j_store.py` and
+  `cypher/queries/02_papers.cypher`.
 - Graph requests are bounded (`NEXUS_MAX_GRAPH_NODES`, `NEXUS_MAX_GRAPH_EDGES`, depth
   ≤ 3, paged listing APIs) so an impatient judge cannot DoS the demo.
 - Rate limiting, CORS allow-listing and JSON error handling are enabled by default.
@@ -479,6 +554,7 @@ These rules are enforced in code, tests and copy — not just in the README:
 | `POST` | `/api/graph` | Bounded, paged graph payload (filter by type/year/focus) |
 | `POST` | `/api/graph/expand` | Expand-on-demand (one hop from selected nodes) |
 | `GET` | `/api/graph/path` | Shortest evidence path between two entities |
+| `POST` | `/api/investigate` | Question → scoped, reranked sources → explainable candidates, paths, caveats, experiment |
 | `POST` | `/api/gaps` | **The gap engine** — ranked candidates + full score decomposition |
 | `POST` | `/api/gaps/{i}/evidence` | The evidence bundle behind one candidate |
 | `POST` | `/api/agent` | GraphRAG answer with explainability + tool trace |
@@ -521,13 +597,15 @@ docker compose up -d      # neo4j 5.26-community + GDS + APOC, then the API cont
 python run.py             # or just use the api container on :8000
 ```
 
-`backend/graph/factory.py` tries Neo4j first, projects the graph with GDS when
-available, and falls back to the embedded engine if the database is unreachable —
-recording *why* in `/api/health` (`store.degraded`, `store.reason`) and in the UI status
-bar. A judge always knows which engine answered. The loader
-(`backend/graph/neo4j_store.py`) creates constraints and a full-text index, hydrates
-nodes/edges from the corpus, streams PageRank/Louvain/betweenness, writes metrics back,
-and materialises `PREDICTED_LINK` edges.
+`backend/graph/factory.py` selects Neo4j only when it is enabled, configured, and
+connectivity-verified; otherwise the API uses the embedded engine and reports the reason
+in `/api/health`. Neo4j imports use stable IDs, `UNWIND`/`MERGE`, and bound row values,
+then hydrate a local working projection for Python, GraphRAG, scope, and gap computations.
+When configured and available, GDS is used for supported analytics; engine labels and
+fallbacks remain visible. The Investigator verifies reported paths with a bounded,
+time-limited, parameterized Neo4j query over observed relationships. **This repository's
+Neo4j path is covered with offline fakes; no live Neo4j service was verified in this
+implementation session.**
 
 ---
 
@@ -538,7 +616,9 @@ comments in [`.env.example`](.env.example).
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` | empty | Neo4j store of record; empty → embedded engine |
+| `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` / `NEO4J_DATABASE` | URI/password empty; database `neo4j` | Select the Neo4j store; connectivity is verified before use, otherwise the fallback reason is reported |
+| `NEO4J_QUERY_TIMEOUT_SECONDS` | 30 | Per-query Neo4j timeout, including bounded Investigator path checks |
+| `NEXUS_ENABLE_NEO4J` / `NEXUS_USE_GDS` | true / true | Enable Neo4j selection and optional GDS analytics |
 | `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` | empty | Any OpenAI-compatible endpoint; empty → graph-template answers |
 | `NEXUS_EMBEDDINGS_URL` | empty | Real embeddings; empty → deterministic local baseline |
 | `NEXUS_MAX_GRAPH_NODES` / `NEXUS_MAX_GRAPH_EDGES` | 400 / 1200 | Hard bounds on graph payloads |
@@ -551,11 +631,12 @@ comments in [`.env.example`](.env.example).
 ## Testing
 
 ```bash
-python -m pytest -q          # 76 tests: corpus, store, kernel, gaps, agent, planner, API, MCP, frontend
-./scripts/smoke.sh           # 46 live HTTP checks against a running server (incl. SSE)
-python run.py --check        # installation preflight
-python scripts/build_corpus.py --check   # corpus validator (ids, dedupe, provenance)
-make -C native test          # native kernel self-tests
+python -m pytest -q                    # offline unit/API/frontend suite
+python run.py --check                  # installation preflight
+python scripts/build_corpus.py --check # corpus validator (ids, dedupe, provenance)
+make -C native test                    # native kernel self-tests
+python run.py                          # start the API, then in another terminal:
+./scripts/smoke.sh                     # live HTTP checks (including investigation and SSE)
 ```
 
 CI runs all of the above plus a `docker build` and a vendored-frontend/no-CDN audit on
@@ -565,7 +646,7 @@ The published website and app are tested the same way (and the deploy is gated o
 
 ```bash
 python scripts/build_site.py --quiet                              # build the snapshot from the engines
-node scripts/check_site_data.mjs --site site --json /tmp/checks.json  # replay it, 60 checks
+node scripts/check_site_data.mjs --site site --json /tmp/checks.json  # replay it, 67 checks in the verified build
 ```
 
 See [Website & app (published)](#website--app-published) — `site/` is generated, so a fresh
@@ -575,22 +656,25 @@ clone builds it rather than carrying it.
 
 ## Demo script (3–5 minutes)
 
-The full narration is in [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md). Short version:
+The walkthrough in [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) uses the local offline mode
+and makes no live-Neo4j claims. Short version:
 
-1. **Home (20 s)** — 204 papers, 713 nodes, 2,963 edges, 15 communities, live engine status; nothing to log into.
-2. **Knowledge Graph (45 s)** — rotate the 3D graph, colour by community, click ReAct,
-   expand on demand, then highlight the evidence path to Agent Memory.
-3. **FIND RESEARCH GAPS (75 s)** — topic *AI Agents*: 88 pairs scored, five-component
-   decomposition, trajectory and evidence for the top candidate. Then retype the topic as
-   *Agent Memory*: every pair in that 17-paper scope is entangled, so NEXUS returns **no
-   candidate and lists the excluded pairs with reasons** — the bar is visible and it does
-   not move.
-4. **AI Research Agent (60 s)** — ask *"Which claims contradict each other about agent
-   memory?"*, then watch the stage trace and open the supporting papers.
-5. **Report (30 s)** — export the Research Opportunity Report as Markdown and the graph as
-   GraphML/Cypher; show the safety notice on the same page.
-6. **Close (20 s)** — `docker compose up` → the identical API on Neo4j + GDS, with the same
-   answers and the engine badge changing from *embedded* to *neo4j*.
+1. **Home / health** — show corpus counts, actual graph backend, GraphRAG/embedding labels,
+   and whether the optional LLM is configured.
+2. **Investigator** — run *“How can agent memory improve coordination in multi-agent systems?”*
+   in *AI Agents*. Walk through the scope, independently reranked source papers, candidate
+   score decomposition, evidence links, graph path/provenance, caveats, and falsification
+   criterion. Treat the candidate as a lead for literature review, not a novelty claim.
+3. **Trace the path** — use a result's graph-trace action; the graph view is seeded from the
+   evidence path and labels the observed relationship types.
+4. **Compare exact demos** — use the *Tool Use* and *Retrieval-Augmented Generation*
+   examples. The latter may have no supported opportunity candidate; its scoped sources and
+   honest empty-state reason are still useful results.
+5. **Existing views** — show the gap engine or agent as a separate workflow and retain each
+   view's heuristic/conflict caveats. Exports and reports remain available.
+
+When using the static site, explain that the three Investigator answers are exact build-time
+snapshots; an unrecorded question/scope pair returns HTTP 501 rather than a substituted answer.
 
 ---
 
@@ -602,7 +686,7 @@ AI-Research-Intelligence-Graph/
 │   ├── api/            FastAPI app, 30+ routes, pydantic schemas
 │   ├── agents/         agent loop, 13 research tools, optional LLM client
 │   ├── algorithms/     native-kernel bridge + pure-Python fallbacks
-│   ├── engine/         gap engine, explorer analytics
+│   ├── engine/         question Investigator, gap engine, explorer analytics
 │   ├── graph/          Neo4j store, store factory (degraded fallback)
 │   ├── ingestion/      corpus → graph, claim extraction/scoring
 │   ├── models/         GNode / GEdge / Subgraph, relationship vocabulary
@@ -617,7 +701,7 @@ AI-Research-Intelligence-Graph/
 ├── polyglot/           Kotlin planner · Ruby claim resolver · Go ingest · C# export · Java service
 ├── scripts/            corpus builder/validator, live smoke sweep, static-site builder
 ├── site/               generated website + PWA (gitignored; built by scripts/build_site.py)
-├── tests/              pytest suite (76 tests)
+├── tests/              offline pytest suite (run locally for the current count)
 ├── docker-compose.yml  Neo4j 5.26 + GDS + APOC + API
 └── run.py              launcher with preflight checks
 ```
@@ -628,19 +712,24 @@ AI-Research-Intelligence-Graph/
 
 Honest list, because a research prototype that hides its limits is not a research prototype:
 
-- **The corpus is a curated demo set (204 papers), not a literature review.** It is
-  deliberately small enough to audit and to run offline. The ingestion path is built for
-  arXiv/Semantic Scholar/Crossref (`backend/ingestion/`, Go sidecar) and the graph schema
-  does not change with scale.
-- **Gap scores are compressed** (≈73–89 in the demo scope) and should be read as ranks
-  and components, not as calibrated probabilities.
-- **Embeddings default to a local lexical baseline** so the demo works offline; set
-  `NEXUS_EMBEDDINGS_URL` for real vectors.
+- **The corpus is a curated demo set (204 paper records), not a literature review.** The
+  shipped app loads and validates this local corpus; the presence of ingestion/sidecar code
+  does not mean this run fetched or continuously synchronizes external sources. Inspect
+  `data/demo/PROVENANCE.md` for field-level provenance. The existing graph schema is reused
+  for the Neo4j loader.
+- **Opportunity and relevance scores are uncalibrated heuristics.** Read component values
+  and within-scope ranking signals; do not treat them as probabilities, effect sizes, or
+  scientific merit. There is no expert-labelled validation study documented here.
+- **Retrieval defaults to a local lexical baseline** so the demo works offline. The API
+  reports the actual retrieval/embedding engine; an external embeddings service is optional.
 - **Claim extraction is rule-based**, tuned for precision (it misses contradictions
   rather than inventing them).
-- **Neo4j/GDS code paths are written and import-tested but were not runnable in the
-  development sandbox** (no Docker) — the embedded engine is the verified path, and
-  `docker compose up` is the one-command way to exercise the other.
+- **Neo4j/GDS is not live-verified in this workspace.** Offline fake-driver tests cover
+  connectivity errors, parameter binding, import rows, claim-provenance hydration, and
+  bounded-path query construction. A real configured Neo4j service is still required to
+  validate deployment, permissions, GDS installation, and live query behavior. When selected,
+  Neo4j backs import and path queries while scope/GraphRAG/GapEngine computations use a
+  Neo4j-hydrated local projection.
 - Next: streaming corpus ingestion from arXiv/S2/Crossref with incremental graph
   upserts, GDS-native similarity pipelines, an evaluation harness against expert-labelled
   gap lists, and multilingual claim normalisation.
@@ -651,12 +740,13 @@ Honest list, because a research prototype that hides its limits is not a researc
 
 | Document | What it covers |
 | --- | --- |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layering, the two engines, why algorithms run out-of-process, security posture |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layering, the two engines, Neo4j projection semantics, security posture |
+| [docs/INVESTIGATOR.md](docs/INVESTIGATOR.md) | Scope/reranking method, candidate support, paths/provenance, falsifiable proposal, static snapshots |
 | [docs/METHODOLOGY.md](docs/METHODOLOGY.md) | Corpus → graph, analytics, claim scoring, the full opportunity-score model, limitations |
 | [docs/GRAPHRAG.md](docs/GRAPHRAG.md) | The three-channel retrieval pipeline, synthesis paths, explainability contract, MCP |
 | [docs/API.md](docs/API.md) | Every endpoint with request/response shapes and error behaviour |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | Node labels, the 14 relationship types, wire format, corpus record format |
-| [docs/UI.md](docs/UI.md) | The seven views, graph controls, the published snapshot, accessibility and degradation behaviour |
+| [docs/UI.md](docs/UI.md) | The eight views, graph controls, static-snapshot boundary, accessibility and degradation behaviour |
 | [docs/SAFETY.md](docs/SAFETY.md) | The honesty rules and where each one is enforced in code |
 | [scripts/build_site.py](scripts/build_site.py) | The static-site builder: what it records, how the snapshot is laid out, the PWA shell |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | The 3–5 minute live walkthrough, with answers to hard questions |

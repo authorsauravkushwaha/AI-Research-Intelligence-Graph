@@ -1,159 +1,87 @@
-# Demo script (3–5 minutes)
+# Demo script — evidence-led Investigator (3–5 minutes)
 
-Everything below runs from a clean checkout with **no Neo4j, no API key and no network**:
+This walkthrough uses the local in-process backend. It needs no Neo4j or LLM credentials.
+It does not imply that a Neo4j server is live or that candidate opportunities are novel.
+
+## Start the app
 
 ```bash
+python -m venv .venv && . .venv/bin/activate
 pip install -r backend/requirements.txt
-python run.py                  # → http://localhost:8000
-./scripts/smoke.sh             # optional: prove all 46 endpoints respond before you present
+python run.py
 ```
 
-Have two terminals ready: one running the server, one free for `curl` and exports.
+Open <http://localhost:8000>. To verify the offline HTTP surface in another terminal, run
+`./scripts/smoke.sh` while the server is up.
 
----
+## 1. Establish provenance and backend (30 seconds)
 
-## 0 · Opening line (10 s)
+On Home, point out the corpus counts, active graph backend, retrieval/embedding labels, and
+LLM status. Open `/api/health` if asked. Say: **“This run uses the in-process graph store;
+GraphRAG reports its actual retrieval engine. Opportunity scores and claim tensions are
+heuristics or review leads, not validated findings.”**
 
-> "This is not a chatbot over papers. It is a **knowledge graph** of research, and every
-> answer you'll see is computed from graph structure: 204 papers, 713 nodes, 2,963
-> relationships, 15 research communities, 51 claim records."
+## 2. Ask a question (90 seconds)
 
-**Say this while the Home view loads** — the status bar already tells the audience what
-they are looking at: engine (`in-process`), embedding baseline, LLM (`graph-template`),
-corpus path.
+Open **Investigator**. Run the included question with scope **AI Agents**:
 
-## 1 · Home (20 s)
+> How can agent memory improve coordination in multi-agent systems?
 
-Point at three things, in this order:
+Walk through the response in this order:
 
-1. **Scope honesty**: "204 papers, 2013–2025, every id a real arXiv record, summaries are
-   editorial and labelled as such — the provenance audit is in the repo."
-2. **Community map**: 15 detected communities with sizes and top topics.
-3. **Activity timeline**: papers per year — the input the gap engine's *research activity*
-   component uses.
+1. **Scope and coverage** — the requested topic, resolver matches, number of records in
+   scope, year coverage, and question-term coverage. Note any corpus limitations.
+2. **Retrieval provenance** — the actual GraphRAG engine label and selected graph backend.
+   GraphRAG provides context; source papers are independently reranked against the question
+   and selected scope.
+3. **Candidate opportunities** — read a candidate as “worth reviewing,” never “new.” The
+   NEXUS Opportunity Score is the existing prototype heuristic. Its component weights and
+   score are shown separately from the Investigator's question-relevance signal.
+4. **Source records** — open the linked arXiv records. The corpus may carry editorial scope
+   notes rather than full abstracts, and the UI labels that provenance.
+5. **Graph path and counterevidence** — read the observed relationship types and provenance.
+   Select **Trace these nodes in the graph** to seed the interactive graph view. A missing
+   path or detected tension is not evidence that prior work or disagreement is absent.
+6. **Experiment proposal** — distinguish the suggested intervention, baseline selection,
+   predeclared primary outcome, controls, and falsification criterion from measured results.
+   The proposal lists unknowns that must be resolved by full-text review.
 
-## 2 · Knowledge Graph (45 s)
+## 3. Compare two exact demo questions (45–60 seconds)
 
-Switch to **Knowledge Graph**. It renders in 3D (drag to rotate, wheel to zoom).
+Select **Planning + API tool use** with scope **Tool Use**. The candidate list is independently
+filtered by the question's concept terms; it is not a copy of the corpus-wide gap ranking.
+Then select **RAG + factual reliability** with scope **Retrieval-Augmented Generation**.
+This scope is small and can return no supported candidate. The response should still show
+relevant records, coverage, and an explicit empty-state reason rather than filling the panel
+with unrelated candidates.
 
-1. Colour by **node type**, then toggle to **community** — "colour is structure, not
-   decoration: this is Louvain output over the concept graph."
-2. Click **ReAct** (`paper:2210.03629`): the side panel shows PageRank, betweenness,
-   degree and *what those numbers mean*.
-3. **Expand on demand** from that node — "the graph is paged and bounded; we never load
-   the whole graph into the browser."
-4. In the path tool, connect `paper:2210.03629` → `topic:agent-memory` and watch the
-   evidence path highlight. "That highlight is the shortest relationship path the engine
-   found — the same primitive the gap engine uses."
-5. Open **Query planner**, press **Plan** on the prefilled DSL: the card shows the
-   *parameterised* Cypher, the bind parameters, the explanation and the cost estimate.
-   "That plan came from the Kotlin sidecar on :8092 — `engine: nexus-kotlin-planner`.
-   Every value is a bind parameter, labels come from a whitelist: try
-   `type in (Paper, SecretVault)` and it refuses instead of guessing. If the JVM is not
-   running, the Python port answers the identical plan — the badge says which one ran."
+## 4. Show the static-site boundary (30 seconds)
 
-## 3 · FIND RESEARCH GAPS — the killer feature (75 s)
+The static build records exactly the three question/scope pairs above at build time. Its
+Investigator response is labelled as a snapshot; the browser does not run a new retrieval,
+graph traversal, or Neo4j query. Change the question or add a filter: the static route returns
+HTTP 501 and lists the supported exact pairs. **No nearest-question answer is substituted.**
+Run the local API for a live investigation.
 
-Switch to **Research Gap Finder**. Leave the topic as **AI Agents**, `top_k = 5`, Run.
+## 5. Close with the backend distinction (30 seconds)
 
-1. **Read the banner**: prototype heuristic, safety notice, scope (101 papers, 46 topics).
-2. **Open the top candidate** and walk the score decomposition aloud:
-   - *Community Separation* 30% — how far apart the two clusters sit in the structure
-   - *Semantic Similarity* 25% — related enough to combine, distinct enough to matter
-   - *Relationship Sparsity* 20% — how few recorded edges cross the boundary
-   - *Research Activity* 15% — is anyone working around this at all
-   - *Bridge Potential* 10% — is there structure that could carry a new connection
-   "Five numbers, published weights, raw values next to the normalised ones — you can
-   argue with each of them."
-3. **Evidence**: the papers defining each cluster, the bridge papers (with years), any
-   detected claim tensions in the area, and the trajectory (`no bridges in corpus` /
-   `persistent gap` / `emerging bridge` / `closing gap`).
-4. **The honesty beat** — type **Agent Memory** and run it again. The scope is 17 papers
-   and *every* pair is entangled (most memory papers in this slice also study multi-agent
-   systems). NEXUS returns **zero candidates and lists the excluded pairs with the
-   reason**. Say: "It refuses to invent a gap. That's the difference between a demo and a
-   tool — the bar is visible, and it doesn't move when the graph is thin."
-5. Optional: narrow `year_min = 2023` on *AI Agents* and show the ranking change.
+When Neo4j is configured and connectivity-verified, the Investigator reports that scope,
+GraphRAG, ranking, and analytics use a Neo4j-hydrated local projection. Its reported evidence
+paths are checked using a bounded, parameterized traversal against Neo4j; those paths are not
+presented as locally computed database paths. The offline test suite exercises the connection,
+import, hydration, provenance, and query contracts with fakes. Do not claim live Neo4j
+verification unless you have actually run the app against a configured service.
 
-## 4 · AI Research Agent (60 s)
+The existing GraphRAG agent, gap finder, graph explorer, and reports remain available as
+separate workflows and retain their own limitations and provenance labels.
 
-Switch to **AI Research Agent**. Ask:
+## Answers to common questions
 
-> "Which claims contradict each other about agent memory?"
-
-1. Watch the **stage trace** stream: `intent → plan → tool → retrieval → synthesis →
-   answer`, each with milliseconds. "You're seeing the pipeline, not a spinner."
-2. Read the answer header: `answer_engine graph-template`, `used_llm false`.
-   "There is no API key in this environment. The answer is composed from graph evidence,
-   and the system says so."
-3. Open **Tool calls** and **Graph evidence**: which tool ran, what it returned, which
-   papers support the claim — 18 detected claim tensions, each with score and reasons.
-4. Ask one follow-up from the suggested list, e.g. *"What are the most important
-   papers?"* → shows ReAct's betweenness 0.1485 and degree 33, with the *"attention, not
-   quality"* caveat.
-
-## 5 · Research Opportunity Report (30 s)
-
-Switch to **Research Opportunity Report**, run for *AI Agents*, then:
-
-1. **Download Markdown** and open it — a complete brief: scope, executive summary, ranked
-   candidates with component tables and evidence links, contradictions, limitations,
-   sources, and the safety notice.
-2. **Export the graph** as GraphML (open in Gephi/yEd) and as Cypher — "the export emits
-   the parameterised Cypher that recreates this slice, so the demo graph and the Neo4j
-   graph are the same object."
-
-## 6 · Close (20 s)
-
-> "Two engines, one query interface: the in-process engine you just watched, and Neo4j 5
-> with GDS behind `docker compose up`. Same schema, same algorithms, same answers — the
-> badge in the status bar changes from *in-process* to *neo4j*. And the C++ kernel that
-> ran Louvain and PageRank in front of you is a static binary with no dependencies."
-
-Optionally show `docker compose up -d`, then `/api/health` reporting
-`requested_backend: neo4j` with `degraded: false`.
-
----
-
-## Talking points if a judge pushes
-
-| Challenge | Answer |
+| Question | Answer |
 | --- | --- |
-| "Isn't this just an LLM prompt?" | No LLM key is configured. Switch it off entirely and every view still works; the answer says `graph-template`. |
-| "How is this different from vector search?" | Gaps, centrality, bridges and conflicts are structural facts. Similarity can only return what already exists. |
-| "Is the score scientifically validated?" | No — it says *prototype heuristic* everywhere, the weights are published, and the components are inspectable. |
-| "Where does the data come from?" | Real arXiv ids and titles; editorial summaries and labels, each labelled; provenance audit in `data/demo/PROVENANCE.md`. |
-| "Could it be gamed?" | The corpus-bounded language, the excluded-pairs list and the per-record provenance are all designed so a wrong claim is visible, not persuasive. |
-| "What breaks at scale?" | The store interface and schema don't change; Neo4j + GDS replaces the embedded engine, and the kernel already handles 20k nodes at ~100 ms PageRank. |
-
-## If you are demoing the published site
-
-The same demo runs at <https://authorsauravkushwaha.github.io/AI-Research-Intelligence-Graph/>
-with no server at all, including on a phone (the install button in the header adds it to the
-home screen). Two adjustments in the narration:
-
-* say what it is before someone asks: *"this is the whole prototype built ahead of time — the
-  graph, the gap scores and the agent answers come from the identical engines, run at build
-  time; everything you click in the graph, search, listings and timelines is computed in your
-  browser right now"*;
-* the eight precomputed gap scopes are *AI Agents, Agent Memory, Tool Use, Reasoning,
-  Multi-Agent Systems, RAG, Evaluation, Benchmarking, AI Safety, Human-AI Interaction* (plus
-  the whole corpus). Typing a different topic returns the documented empty state — that is a
-  feature (the site refuses to invent a score), and the reason it prints includes the command
-  to run NEXUS locally for a live answer;
-* everything else in this script — the graph rotation, the ReAct evidence path, the
-  explainability panel, the conflict list, the report — is unchanged.
-
----
-
-## Pre-flight checklist
-
-```bash
-python run.py --check          # dependencies, corpus, kernel, capability flags
-python -m pytest -q            # 76 tests
-./scripts/smoke.sh             # 46 live endpoint checks
-curl -s localhost:8000/api/health | python3 -m json.tool | head -30
-```
-
-Browser: full-window, zoom 100 %, and **no other tabs** — the 3D view is the thing people
-photograph.
+| “Is this a novelty detector?” | No. The opportunity score is an uncalibrated prototype heuristic over a curated corpus. Review the cited work and search outside the corpus. |
+| “Does a missing edge mean those fields were never combined?” | No. It means only that this graph did not return that edge/path within its scope and traversal bound. |
+| “Are the claim conflicts established contradictions?” | No. Automated tensions are hypotheses for source review, not adjudicated disagreements. |
+| “What does GraphRAG contribute?” | A retrieval context with an explicit engine label. The Investigator separately reranks paper records against the question and scope. |
+| “Is the Neo4j path live-tested?” | Not in this implementation session. Offline fake-driver tests cover connection verification, parameter binding, safe failures, idempotent import rows, hydration, and the bounded-path query. |
+| “What does the experiment proposal prove?” | Nothing yet. It is a falsifiable study design sketch; its baseline and protocol require full-text review, and no outcomes are reported. |

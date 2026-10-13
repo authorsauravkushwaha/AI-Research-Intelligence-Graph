@@ -107,6 +107,7 @@ class GraphBuilder:
     # --------------------------------------------------------------- build
     def build(self) -> BuiltGraph:
         papers = self.corpus.get("papers", [])
+        papers_by_arxiv_id = {record.get("arxiv_id"): record for record in papers}
         paper_ids: list[str] = []
 
         for record in papers:
@@ -172,10 +173,18 @@ class GraphBuilder:
                 directed=True,
             )
 
-        # claims + provenance
+        # claims + provenance. Keep the claim's stable source-paper identity and
+        # URL beside the annotation so GraphRAG never has to infer its source.
         for claim in self.corpus.get("claims", []):
             cid = claim_id(claim["id"])
             pid = paper_id(claim["paper"])
+            source_record = papers_by_arxiv_id.get(claim.get("paper"), {})
+            raw_provenance = claim.get("provenance")
+            claim_provenance = dict(raw_provenance) if isinstance(raw_provenance, dict) else {}
+            claim_provenance.setdefault("paper_id", pid)
+            if source_record.get("url"):
+                claim_provenance.setdefault("url", source_record["url"])
+            claim_provenance.setdefault("annotation_source", claim.get("source", "unspecified"))
             self._node(
                 GNode(
                     id=cid,
@@ -186,7 +195,7 @@ class GraphBuilder:
                         "stance": claim.get("stance", "reports"),
                         "confidence": claim.get("confidence", "unscored"),
                         "source": claim.get("source", "unspecified"),
-                        "provenance": claim.get("provenance", {}),
+                        "provenance": claim_provenance,
                     },
                 )
             )

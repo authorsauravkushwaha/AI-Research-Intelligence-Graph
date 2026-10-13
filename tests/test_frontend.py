@@ -20,7 +20,7 @@ def test_frontend_assets_exist_and_are_local():
 
 def test_every_view_has_a_section_and_a_route():
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    for view in ("home", "explorer", "graph", "gaps", "papers", "agent", "report"):
+    for view in ("home", "investigate", "explorer", "graph", "gaps", "papers", "agent", "report"):
         assert f'id="view-{view}"' in index, view
 
 def test_every_element_the_script_reaches_for_exists_in_the_markup():
@@ -36,6 +36,19 @@ def test_every_element_the_script_reaches_for_exists_in_the_markup():
     wanted = set(re.findall(r'\$\("#([a-zA-Z0-9_-]+)"\)', app))
     missing = sorted(wanted - declared - injected)
     assert not missing, f"app.js targets elements nothing declares: {missing}"
+
+
+def test_investigator_journey_and_seeded_graph_trace_are_wired():
+    index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    app = (ROOT / "frontend" / "assets" / "app.js").read_text(encoding="utf-8")
+    site = (ROOT / "frontend" / "assets" / "site.js").read_text(encoding="utf-8")
+    for element in ("investigator-form", "investigator-question", "investigator-scope", "investigator-results"):
+        assert f'id="{element}"' in index, element
+    assert 'api("/api/investigate"' in app
+    assert "seeds: Array.isArray(seeds)" in app
+    assert 'data-trace-path' in app
+    assert 'route === "/api/investigate"' in site
+    assert "no nearest-question answer is substituted" in site
 
 
 def test_the_planner_card_and_engine_strip_are_present():
